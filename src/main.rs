@@ -102,10 +102,13 @@ async fn main() {
         .layer(CompressionLayer::new().br(true).gzip(true))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-        .await
-        .expect("port 8080 må være ledig");
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let adresse = format!("0.0.0.0:{port}");
 
-    println!("Kjører på http://127.0.0.1:8080");
+    let listener = tokio::net::TcpListener::bind(&adresse)
+        .await
+        .unwrap_or_else(|_| panic!("port {port} må være ledig"));
+
+    println!("Kjører på http://{adresse}");
     axum::serve(listener, app).await.expect("serveren stoppet");
 }
