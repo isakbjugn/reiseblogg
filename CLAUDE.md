@@ -9,7 +9,7 @@ Reiseblogg for to som skriver fra Sør-Amerika. Egenutviklet framfor Wordpress.
 Én Rust-app eier alt: database, auth, HTML-rendring og bildeopplasting. Lesesidene er
 server-rendret HTML uten JavaScript. Editoren er en Preact-island. Én tjeneste å deploye.
 
-`PLAN.md` beskriver stegene fra spike til ferdig blogg og hva som bevisst er utelatt.
+`PLAN.md` beskriver stegene fram til ferdig blogg og hva som bevisst er utelatt.
 
 ## Teknisk stack
 

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
-{% block tittel %}Skriv – Sør-Amerika{% endblock %}
+{% block tittel %}{{ overskrift }} – Sør-Amerika{% endblock %}
+{% block main_klasse %}bred{% endblock %}
 
 {% block head %}
   {# Import map-en ligger HER, ikke i base.html, så lesesidene slipper å laste noe.
@@ -32,17 +33,42 @@
 {% endblock %}
 
 {% block innhold %}
-  <h1>Skriv</h1>
+  <h1>{{ overskrift }}</h1>
+
+  {# Progressive enhancement, jf. «HTML først» i CLAUDE.md.
+
+     `#editor-enkel` er et helt vanlig skjema som fungerer uten JavaScript –
+     samme felt, samme `action`, bare uten forhåndsvisning. `editor.js` fjerner
+     det og monterer Preact i `#editor` i stedet.
+
+     To grunner til å gjøre det slik framfor <noscript>: det dekker også at
+     JavaScript *feiler* (ikke bare er avslått), og det gir noe å se på med en
+     gang mens modulene laster. Egne containere framfor å la Preact overskrive
+     skjemaet – Preact differ mot eksisterende DOM og det blir rotete.
+
+     MERK: POST-håndtering kommer i steg 4. Skjemaet peker riktig sted, men
+     serveren svarer ikke på det ennå. #}
+  <form id="editor-enkel" class="editor" method="post" action="{{ handling }}">
+    <label for="enkel-tittel">Tittel</label>
+    <input id="enkel-tittel" name="tittel" value="{{ tittel }}" />
+
+    <label for="enkel-innhold">Innhold (Markdown)</label>
+    <textarea id="enkel-innhold" name="innhold" rows="18">{{ innhold }}</textarea>
+
+    <div class="knapperad">
+      <button type="submit">Lagre</button>
+    </div>
+  </form>
 
   {# Islanden. Rust legger startverdiene i data-attributter, så Preact slipper et
      ekstra API-kall for å hente det den skal redigere. Alt utenfor denne div-en
      er server-rendret HTML. #}
   <div
     id="editor"
+    hidden
     data-slug="{{ slug }}"
     data-tittel="{{ tittel }}"
     data-innhold="{{ innhold }}"
-  >
-    <noscript>Editoren krever JavaScript. Lesesidene gjør det ikke.</noscript>
-  </div>
+    data-handling="{{ handling }}"
+  ></div>
 {% endblock %}

@@ -6,18 +6,50 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{% block tittel %}Reiseblogg{% endblock %}</title>
+
+    <title>{% block tittel %}Sør-Amerika{% endblock %}</title>
+
+    {# Beskrivelse og Open Graph, så delte lenker ser riktige ut i chat og sosiale
+       medier. Sider med noe bedre – f.eks. en post med sammendrag – overstyrer
+       `beskrivelse`-blokken. `self.tittel()` gjenbruker <title>-blokken over. #}
+    {% set side_beskrivelse %}{% block beskrivelse %}Reisebrev fra Sør-Amerika, skrevet av Isak og Ingrid.{% endblock %}{% endset %}
+    <meta name="description" content="{{ side_beskrivelse }}" />
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}" />
+    <meta property="og:title" content="{{ self.tittel() }}" />
+    <meta property="og:description" content="{{ side_beskrivelse }}" />
+    <meta property="og:locale" content="nb_NO" />
+
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/stil.css" />
+
+    {# Fontene ligger i @font-face inne i stil.css, som nettleseren først oppdager
+       etter at CSS-en er lastet og parset. `preload` starter nedlastingen med en
+       gang i stedet, så teksten ikke rendres to ganger. Bare de to vi faktisk
+       bruker på hver side – kursiv og fet er unntaket, ikke regelen.
+       `crossorigin` er påkrevd for fonter selv om de er samme opphav. #}
+    <link rel="preload" href="/static/fonter/lato-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/static/fonter/playfair-variabel.woff2" as="font" type="font/woff2" crossorigin />
+
     {% block head %}{% endblock %}
   </head>
   <body>
     <header class="topp">
-      <a href="/"><strong>Sør-Amerika</strong></a>
-      <nav><a href="/ny">Skriv</a></nav>
+      <a class="merke" href="/">Sør-Amerika</a>
+      <nav>
+        <a href="/arkiv">Arkiv</a>
+        <a href="/om-oss">Om oss</a>
+        {# Innloggingsstatus styrer denne i steg 3. #}
+        <a href="/ny">Skriv</a>
+      </nav>
     </header>
 
-    <main>{% block innhold %}{% endblock %}</main>
+    {# Lesesidene holder seg innenfor lesbar linjelengde. Editoren overstyrer med
+       `bred`, fordi to spalter side om side trenger mer plass. #}
+    <main class="{% block main_klasse %}{% endblock %}">{% block innhold %}{% endblock %}</main>
 
-    <footer class="bunn">Spike – ingen database ennå.</footer>
+    <footer class="bunn">
+      <span>Isak og Ingrid, 2026</span>
+      <a href="/arkiv">Alle innlegg</a>
+    </footer>
   </body>
 </html>

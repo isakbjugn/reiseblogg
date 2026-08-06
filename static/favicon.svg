@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fjelltopper og sol, i samme palett som stil.css. SVG framfor .ico fordi det
+     skalerer til enhver størrelse i én fil på 500 byte, og kan redigeres i en
+     tekstredigerer. `viewBox` 0 0 64 64 gjør koordinatene under lette å lese. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="12" fill="#a8bba3" />
+  <circle cx="44" cy="20" r="7" fill="#fdfcf7" />
+  <!-- Bakre, lysere fjell først, så det fremre legger seg over. -->
+  <path d="M4 52 L24 24 L40 52 Z" fill="#4a5d43" opacity="0.55" />
+  <path d="M20 52 L38 28 L58 52 Z" fill="#23291f" />
+  <!-- Snøen på den fremre toppen: samme trekant, klippet ved y=36. -->
+  <path d="M38 28 L45 37 L41 35 L38 37 L35 35 L31 37 Z" fill="#fdfcf7" />
+</svg>

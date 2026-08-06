@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block tittel %}Arkiv – Sør-Amerika{% endblock %}
+{% block beskrivelse %}Alle innlegg fra reisen, måned for måned.{% endblock %}
+
+{% block innhold %}
+  <h1>Arkiv</h1>
+  <p class="ingress">Alle innlegg, nyeste først.</p>
+
+  {% for gruppe in grupper %}
+    <section class="arkivgruppe">
+      <h2>{{ gruppe.tittel }}</h2>
+      <ul class="arkivliste">
+        {% for post in gruppe.poster %}
+          <li>
+            <time datetime="{{ post.dato }}">{{ post.dato_lesbar }}</time>
+            <a href="/post/{{ post.slug }}">{{ post.tittel }}</a>
+            <span class="forfatter">{{ post.forfatter }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% else %}
+    <p>Ingen innlegg ennå.</p>
+  {% endfor %}
+{% endblock %}

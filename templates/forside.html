@@ -1,19 +1,28 @@
 {% extends "base.html" %}
 
-{% block tittel %}Sør-Amerika – reiseblogg{% endblock %}
+{% block tittel %}Sør-Amerika{% endblock %}
 
 {% block innhold %}
-  <h1>Sør-Amerika</h1>
-  <p class="ingress">Reisebrev fra to på vandring.</p>
+  <div class="ingress-blokk">
+    <h1>Sør-Amerika</h1>
+    <p class="ingress">Reisebrev fra Isak og Ingrid, fire måneder sørover.</p>
+  </div>
 
-  {# Løkka beviser interpolering per post – nettopp det en SPA ikke trenger,
-     og grunnen til at vi vil ha en template-motor. #}
-  <ul class="postliste">
+  {# Løkka er grunnen til at vi vil ha en template-motor: antall poster er ukjent
+     når fila skrives. #}
+  <div class="postliste">
     {% for post in poster %}
-      <li>
-        <a href="/post/{{ post.slug }}">{{ post.tittel }}</a>
-        <time datetime="{{ post.dato }}">{{ post.dato }}</time>
-      </li>
+      <article class="postkort">
+        <h2><a href="/post/{{ post.slug }}">{{ post.tittel }}</a></h2>
+        <p class="meta">
+          <time datetime="{{ post.dato }}">{{ post.dato_lesbar }}</time>
+          · {{ post.forfatter }}
+        </p>
+        <p class="sammendrag">{{ post.sammendrag }}</p>
+        <a class="les-mer" href="/post/{{ post.slug }}">Les videre</a>
+      </article>
+    {% else %}
+      <p>Ingen innlegg ennå.</p>
     {% endfor %}
-  </ul>
+  </div>
 {% endblock %}

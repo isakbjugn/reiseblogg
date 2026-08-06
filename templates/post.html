@@ -1,15 +1,26 @@
 {% extends "base.html" %}
 
 {% block tittel %}{{ tittel }} – Sør-Amerika{% endblock %}
+{% block beskrivelse %}{{ sammendrag }}{% endblock %}
+{% block og_type %}article{% endblock %}
 
 {% block innhold %}
-  <article>
+  <article class="post">
     <h1>{{ tittel }}</h1>
-    <time datetime="{{ dato }}">{{ dato }}</time>
+    <p class="meta">
+      <time datetime="{{ dato }}">{{ dato_lesbar }}</time>
+      · {{ forfatter }}
+    </p>
 
-    {# `| safe` fordi `innhold` er HTML rendret av serveren (senere pulldown-cmark).
-       Alt annet auto-escapes av minijinja. Når dette kobles til databasen må
-       Markdown-rendringen kjøre med rå HTML avslått, ellers er dette en XSS-vei. #}
+    {# `| safe` fordi `innhold` er HTML rendret av `markdown::til_html`. Den
+       renderen fjerner rå HTML og nuller javascript:-URL-er – uten det ville
+       denne linja vært en XSS-vei. Alt annet på siden auto-escapes. #}
     <div class="brodtekst">{{ innhold | safe }}</div>
   </article>
+
+  <nav class="post-bunn">
+    <a href="/">← Alle innlegg</a>
+    {# Vises bare for eier/admin fra steg 4. #}
+    <a href="/rediger/{{ slug }}">Rediger</a>
+  </nav>
 {% endblock %}

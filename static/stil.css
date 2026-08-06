@@ -1,88 +1,393 @@
-/* Minimal stil – nok til å se at oppsettet fungerer, ikke et designforslag.
-   Skrifttypene er hentet fra adrian-og-celine, men lokalt-først: bruk system-
-   fonter her i spiken, så vi ikke drar inn Google Fonts for et eksperiment. */
+/* Stil for hele nettstedet. Én fil – på denne størrelsen er det enklere å lese
+   enn en mappe med partialer, og det er én forespørsel.
+
+   Uttrykket er hentet fra adrian-og-celine: grønn bakgrunn, Playfair Display i
+   overskriftene, Lato i brødteksten. Forskjellen er at fontene hostes lokalt fra
+   /static/fonter i stedet for via Google Fonts. Grunnene: ingen forespørsel til
+   et tredjepartsdomene i den kritiske rendringsstien, og sidene fungerer fra
+   nettverk som filtrerer fonts.googleapis.com. Prisen er 103 kB i git og at vi
+   selv må oppdatere filene – som for en reiseblogg er aldri.
+
+   Bare latin-subsettet er lastet ned. Norsk trenger ikke mer, og
+   `unicode-range` under er kopiert fra Google slik at nettleseren vet det. */
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonter/lato-400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lato';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonter/lato-700.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Lato';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonter/lato-400-italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Playfair Display er en variabel font: én fil dekker hele vektspennet
+   400–900, derfor `font-weight: 400 700` framfor to separate filer. */
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/static/fonter/playfair-variabel.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/static/fonter/playfair-variabel-italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+    U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 :root {
   --bakgrunn: #a8bba3;
   --kort: #fdfcf7;
   --tekst: #23291f;
   --dempet: #5d6656;
+  --kantlinje: #d9ddd1;
+  --aksent: #4a5d43;
+
+  --serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --sans: 'Lato', ui-sans-serif, system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --radius: 8px;
+  --skygge: 0 1px 3px rgb(35 41 31 / 8%);
+  /* Sideluft i én variabel, så topp, main og bunn holder samme venstremarg. */
+  --luft: clamp(1rem, 5vw, 3rem);
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--bakgrunn);
   color: var(--tekst);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--sans);
   font-size: 18px;
-  line-height: 1.6;
+  line-height: 1.65;
+  /* Hindrer at mobil-Safari blåser opp fonten i landskapsmodus. */
+  -webkit-text-size-adjust: 100%;
 }
 
 h1,
 h2,
-h3 {
-  font-family: ui-serif, Georgia, serif;
+h3,
+h4 {
+  font-family: var(--serif);
+  font-weight: 700;
   line-height: 1.2;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  margin: 0 0 0.4rem;
+}
+
+h2 {
+  font-size: 1.5rem;
 }
 
 a {
   color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
 }
+
+a:hover {
+  color: var(--aksent);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Nettleserens fokusring, men tydeligere. Aldri `outline: none` – da mister
+   tastaturbrukere all posisjon på siden. */
+:focus-visible {
+  outline: 2px solid var(--aksent);
+  outline-offset: 2px;
+}
+
+/* Skall */
 
 .topp,
 .bunn {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  padding: 1rem clamp(1rem, 5vw, 3rem);
+  padding: 1.25rem var(--luft);
+}
+
+.merke {
+  font-family: var(--serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.topp nav {
+  display: flex;
+  gap: 1.25rem;
+  font-size: 0.95rem;
+}
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1rem var(--luft) 4rem;
+}
+
+/* Editoren trenger to spalter og sprenger 52rem. Klassen settes på <main> via
+   `main_klasse`-blokken i base.html. */
+main.bred {
+  max-width: 76rem;
 }
 
 .bunn {
   color: var(--dempet);
   font-size: 0.85rem;
+  border-top: 1px solid rgb(35 41 31 / 10%);
 }
 
-main {
-  max-width: 70rem;
-  margin: 0 auto;
-  padding: 1rem clamp(1rem, 5vw, 3rem) 3rem;
+/* Forside */
+
+.ingress-blokk {
+  margin-bottom: 2.5rem;
 }
 
 .ingress {
   color: var(--dempet);
+  font-size: 1.1rem;
+  margin-top: 0;
 }
 
 .postliste {
-  list-style: none;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.postkort {
+  background: var(--kort);
+  border-radius: var(--radius);
+  box-shadow: var(--skygge);
+  padding: 1.5rem clamp(1.25rem, 4vw, 2rem);
+}
+
+.postkort h2 {
+  margin: 0;
+}
+
+.postkort h2 a {
+  text-decoration: none;
+}
+
+.postkort h2 a:hover {
+  text-decoration: underline;
+}
+
+.meta {
+  color: var(--dempet);
+  font-size: 0.85rem;
+  margin: 0.35rem 0 1rem;
+  /* Små caps på datoen gir den litt karakter uten å ta oppmerksomhet. */
+  letter-spacing: 0.02em;
+}
+
+.sammendrag {
+  margin: 0 0 1rem;
+}
+
+.les-mer {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--aksent);
+}
+
+.les-mer:hover {
+  text-decoration: underline;
+}
+
+/* Enkeltpost */
+
+.post {
+  background: var(--kort);
+  border-radius: var(--radius);
+  box-shadow: var(--skygge);
+  padding: clamp(1.5rem, 5vw, 3rem);
+}
+
+/* Brødtekst = alt som kommer fra Markdown. Reglene her gjelder derfor HTML vi
+   ikke skriver selv, og må tåle hva pulldown-cmark enn produserer. */
+.brodtekst {
+  max-width: 38em; /* ~70 tegn per linje, lesbarhetsgrensen */
+}
+
+.brodtekst > :first-child {
+  margin-top: 0;
+}
+
+.brodtekst > :last-child {
+  margin-bottom: 0;
+}
+
+.brodtekst h2 {
+  margin-top: 2rem;
+}
+
+.brodtekst blockquote {
+  margin: 1.5rem 0;
+  padding-left: 1.25rem;
+  border-left: 3px solid var(--bakgrunn);
+  color: var(--dempet);
+  font-style: italic;
+}
+
+.brodtekst code {
+  font-family: var(--mono);
+  font-size: 0.9em;
+  background: #f0efe6;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.brodtekst pre {
+  background: #f0efe6;
+  padding: 1rem;
+  border-radius: var(--radius);
+  overflow-x: auto;
+}
+
+.brodtekst pre code {
+  background: none;
   padding: 0;
 }
 
-.postliste li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.5rem;
-  background: var(--kort);
-  border-radius: 6px;
+.brodtekst table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
 }
 
-.postliste time,
-article time {
+.brodtekst th,
+.brodtekst td {
+  border: 1px solid var(--kantlinje);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.brodtekst hr {
+  border: none;
+  border-top: 1px solid var(--kantlinje);
+  margin: 2.5rem 0;
+}
+
+/* Fotnoter fra pulldown-cmarks FOOTNOTES-utvidelse. */
+.brodtekst .footnote-definition {
+  font-size: 0.9rem;
+  color: var(--dempet);
+}
+
+.brodtekst .footnote-definition p {
+  display: inline;
+}
+
+.post-bunn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  font-size: 0.9rem;
+}
+
+/* Arkiv */
+
+.arkivgruppe {
+  margin-bottom: 2.5rem;
+}
+
+.arkivgruppe h2 {
+  margin-bottom: 0.75rem;
+  /* Månedsnavnene er ikke titler, så de skal ikke skrike som h1. */
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: var(--dempet);
+}
+
+.arkivliste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--kort);
+  border-radius: var(--radius);
+  box-shadow: var(--skygge);
+  overflow: hidden;
+}
+
+.arkivliste li {
+  display: grid;
+  /* Datoen får fast bredde, tittelen resten, forfatteren så mye den trenger.
+     Grid framfor flex her fordi datoene da står rett under hverandre. */
+  grid-template-columns: 6rem 1fr auto;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.85rem clamp(1rem, 3vw, 1.5rem);
+}
+
+.arkivliste li + li {
+  border-top: 1px solid var(--kantlinje);
+}
+
+.arkivliste time,
+.arkivliste .forfatter {
   color: var(--dempet);
   font-size: 0.85rem;
 }
 
-article,
-.forhandsvisning {
-  background: var(--kort);
-  padding: 1.25rem 1.5rem;
-  border-radius: 6px;
+@media (max-width: 34rem) {
+  .arkivliste li {
+    /* På smal skjerm gir tre spalter 6 tegn per linje. Stables i stedet. */
+    grid-template-columns: 1fr;
+    gap: 0.15rem;
+  }
 }
 
 /* Editor */
@@ -91,30 +396,37 @@ article,
 .editor .etikett {
   display: block;
   font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
 }
 
 .editor input,
 .editor textarea {
   width: 100%;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid #c7cdbf;
-  border-radius: 6px;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--kantlinje);
+  border-radius: var(--radius);
   font: inherit;
   background: var(--kort);
+  color: inherit;
+}
+
+.editor input {
+  font-family: var(--serif);
+  font-size: 1.2rem;
 }
 
 .editor textarea {
-  font-family: ui-monospace, monospace;
+  font-family: var(--mono);
   font-size: 0.95rem;
+  line-height: 1.6;
   resize: vertical;
 }
 
 .editor-rader {
   display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
 }
 
 @media (min-width: 60rem) {
@@ -123,11 +435,74 @@ article,
   }
 }
 
+.forhandsvisning {
+  background: var(--kort);
+  border-radius: var(--radius);
+  box-shadow: var(--skygge);
+  padding: 1.5rem;
+  /* Uten dette vokser forhåndsvisningen forbi tekstfeltet og hele siden
+     hopper mens man skriver. */
+  max-height: 34rem;
+  overflow-y: auto;
+}
+
 .forhandsvisning > :first-child {
   margin-top: 0;
+}
+
+.knapperad {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+button {
+  font: inherit;
+  font-weight: 700;
+  padding: 0.6rem 1.4rem;
+  border: 1px solid var(--aksent);
+  border-radius: var(--radius);
+  background: var(--aksent);
+  color: var(--kort);
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--tekst);
+  border-color: var(--tekst);
+}
+
+button.sekundaer {
+  background: none;
+  color: var(--aksent);
+}
+
+button.sekundaer:hover {
+  background: rgb(74 93 67 / 10%);
+  color: var(--aksent);
+  border-color: var(--aksent);
 }
 
 .hint {
   color: var(--dempet);
   font-size: 0.85rem;
+}
+
+/* Om oss */
+
+details {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--kantlinje);
+  border-radius: var(--radius);
+}
+
+summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+details[open] summary {
+  margin-bottom: 0.5rem;
 }

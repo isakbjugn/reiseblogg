@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block tittel %}Om oss – Sør-Amerika{% endblock %}
+{% block beskrivelse %}Om Isak og Ingrid, og om hvorfor bloggen er skrevet fra grunnen av.{% endblock %}
+
+{% block innhold %}
+  <article class="post">
+    <h1>Om oss</h1>
+
+    <div class="brodtekst">
+      <p>
+        Vi er Isak og Ingrid, og i 2026 reiser vi fire måneder i Sør-Amerika.
+        Her skriver vi om det vi ser underveis – mest for oss selv, men også
+        for familie og venner som vil følge med.
+      </p>
+
+      <h2>Om bloggen</h2>
+      <p>
+        Denne siden er skrevet fra grunnen av, i Rust. Det er en unødvendig
+        måte å lage en blogg på, og det er hele poenget.
+      </p>
+
+      {# <details> framfor et JavaScript-panel: nettleseren har dette innebygd. #}
+      <details>
+        <summary>Litt mer om hvordan den er bygd</summary>
+        <p>
+          Sidene du leser er ren HTML, satt sammen av serveren. Det lastes ingen
+          JavaScript på dem i det hele tatt. Bare skriveverktøyet vårt bruker
+          JavaScript, og bare på siden der vi faktisk skriver.
+        </p>
+        <p>
+          Innleggene skrives i Markdown og lagres som tekst, så de kan flyttes
+          videre til noe annet den dagen dette slutter å være gøy.
+        </p>
+      </details>
+
+      <h2>Kontakt</h2>
+      <p>
+        Har du spørsmål om et sted vi har vært, send oss gjerne en melding.
+      </p>
+    </div>
+  </article>
+{% endblock %}

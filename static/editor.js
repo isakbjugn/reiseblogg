@@ -13,34 +13,47 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { html } from 'htm/preact';
 import MarkdownIt from 'markdown-it';
 
-const KLADD_NØKKEL = 'reiseblogg:kladd';
+// Én nøkkel per post, slik at en kladd på «Cusco» ikke overskriver en kladd på
+// «Atacama». Ny post får nøkkelen «ny».
+const kladdNøkkel = (slug) => `reiseblogg:kladd:${slug || 'ny'}`;
 
-function Editor({ startTittel, startInnhold }) {
+// `html: false` slår av rå HTML i Markdown. Viktig: forhåndsvisningen settes inn
+// med dangerouslySetInnerHTML, og serveren rendrer det publiserte med
+// pulldown-cmark på samme innstilling – ellers divergerer de to. Se CLAUDE.md.
+const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+
+function Editor({ slug, handling, startTittel, startInnhold }) {
   // Kladd fra localStorage vinner over serverens startverdi: mistet nett eller
   // et uhell med refresh skal ikke spise det du har skrevet. Kritisk på reise.
   const kladd = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem(KLADD_NØKKEL) ?? 'null');
+      return JSON.parse(localStorage.getItem(kladdNøkkel(slug)) ?? 'null');
     } catch {
       return null;
     }
-  }, []);
+  }, [slug]);
 
   const [tittel, setTittel] = useState(kladd?.tittel ?? startTittel);
   const [innhold, setInnhold] = useState(kladd?.innhold ?? startInnhold);
 
   useEffect(() => {
-    localStorage.setItem(KLADD_NØKKEL, JSON.stringify({ tittel, innhold }));
-  }, [tittel, innhold]);
+    localStorage.setItem(kladdNøkkel(slug), JSON.stringify({ tittel, innhold }));
+  }, [slug, tittel, innhold]);
 
-  // `html: false` slår av rå HTML i Markdown. Viktig: forhåndsvisningen settes
-  // inn med dangerouslySetInnerHTML, og når dette senere rendres av serveren må
-  // pulldown-cmark kjøre med samme innstilling – ellers divergerer de to.
-  const md = useMemo(() => new MarkdownIt({ html: false, linkify: true, breaks: false }), []);
-  const forhåndsvist = useMemo(() => md.render(innhold), [md, innhold]);
+  const forhåndsvist = useMemo(() => md.render(innhold), [innhold]);
+
+  // Bare relevant når kladden faktisk avviker fra det serveren sendte – ellers
+  // er det ingenting å forkaste.
+  const harUlagretKladd = tittel !== startTittel || innhold !== startInnhold;
+
+  function forkast() {
+    localStorage.removeItem(kladdNøkkel(slug));
+    setTittel(startTittel);
+    setInnhold(startInnhold);
+  }
 
   return html`
-    <form class="editor" method="post" action="/ny">
+    <form class="editor" method="post" action=${handling}>
       <label for="tittel">Tittel</label>
       <input
         id="tittel"
@@ -66,22 +79,37 @@ function Editor({ startTittel, startInnhold }) {
           <span class="etikett">Forhåndsvisning</span>
           <article class="forhandsvisning">
             ${tittel && html`<h2>${tittel}</h2>`}
-            <div dangerouslySetInnerHTML=${{ __html: forhåndsvist }}></div>
+            <div class="brodtekst" dangerouslySetInnerHTML=${{ __html: forhåndsvist }}></div>
           </article>
         </div>
       </div>
 
+      <div class="knapperad">
+        <button type="submit">Lagre</button>
+        ${harUlagretKladd
+          && html`<button type="button" class="sekundaer" onClick=${forkast}>Forkast endringer</button>`}
+      </div>
+
       <p class="hint">
-        Kladden lagres lokalt i nettleseren. Publisering kommer når databasen er på plass.
+        Kladden lagres lokalt i nettleseren mens du skriver. Lagring på serveren kommer i steg 4.
       </p>
     </form>
   `;
 }
 
 const rot = document.getElementById('editor');
+const enkeltSkjema = document.getElementById('editor-enkel');
+
+// Byttet skjer her, etter at alle importene er løst. Feiler en av dem, kastes
+// det før denne linja og det enkle skjemaet blir stående – som er hele poenget
+// med progressive enhancement.
+if (enkeltSkjema) enkeltSkjema.remove();
+rot.hidden = false;
 
 render(
   html`<${Editor}
+    slug=${rot.dataset.slug}
+    handling=${rot.dataset.handling}
     startTittel=${rot.dataset.tittel}
     startInnhold=${rot.dataset.innhold}
   />`,
