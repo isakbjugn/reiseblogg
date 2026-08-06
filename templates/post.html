@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block tittel %}{{ tittel }} – Sør-Amerika{% endblock %}
+
+{% block innhold %}
+  <article>
+    <h1>{{ tittel }}</h1>
+    <time datetime="{{ dato }}">{{ dato }}</time>
+
+    {# `| safe` fordi `innhold` er HTML rendret av serveren (senere pulldown-cmark).
+       Alt annet auto-escapes av minijinja. Når dette kobles til databasen må
+       Markdown-rendringen kjøre med rå HTML avslått, ellers er dette en XSS-vei. #}
+    <div class="brodtekst">{{ innhold | safe }}</div>
+  </article>
+{% endblock %}

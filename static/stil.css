@@ -1,0 +1,133 @@
+/* Minimal stil – nok til å se at oppsettet fungerer, ikke et designforslag.
+   Skrifttypene er hentet fra adrian-og-celine, men lokalt-først: bruk system-
+   fonter her i spiken, så vi ikke drar inn Google Fonts for et eksperiment. */
+
+:root {
+  --bakgrunn: #a8bba3;
+  --kort: #fdfcf7;
+  --tekst: #23291f;
+  --dempet: #5d6656;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bakgrunn);
+  color: var(--tekst);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+h1,
+h2,
+h3 {
+  font-family: ui-serif, Georgia, serif;
+  line-height: 1.2;
+}
+
+a {
+  color: inherit;
+}
+
+.topp,
+.bunn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem clamp(1rem, 5vw, 3rem);
+}
+
+.bunn {
+  color: var(--dempet);
+  font-size: 0.85rem;
+}
+
+main {
+  max-width: 70rem;
+  margin: 0 auto;
+  padding: 1rem clamp(1rem, 5vw, 3rem) 3rem;
+}
+
+.ingress {
+  color: var(--dempet);
+}
+
+.postliste {
+  list-style: none;
+  padding: 0;
+}
+
+.postliste li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--kort);
+  border-radius: 6px;
+}
+
+.postliste time,
+article time {
+  color: var(--dempet);
+  font-size: 0.85rem;
+}
+
+article,
+.forhandsvisning {
+  background: var(--kort);
+  padding: 1.25rem 1.5rem;
+  border-radius: 6px;
+}
+
+/* Editor */
+
+.editor label,
+.editor .etikett {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.editor input,
+.editor textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #c7cdbf;
+  border-radius: 6px;
+  font: inherit;
+  background: var(--kort);
+}
+
+.editor textarea {
+  font-family: ui-monospace, monospace;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.editor-rader {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (min-width: 60rem) {
+  .editor-rader {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.forhandsvisning > :first-child {
+  margin-top: 0;
+}
+
+.hint {
+  color: var(--dempet);
+  font-size: 0.85rem;
+}

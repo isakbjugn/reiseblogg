@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block tittel %}Skriv – Sør-Amerika{% endblock %}
+
+{% block head %}
+  {# Import map-en ligger HER, ikke i base.html, så lesesidene slipper å laste noe.
+
+     Vi hoster avhengighetene selv, fra static/vendor/. Filene er hentet fra
+     esm.sh med `?bundle`, som slår transitive avhengigheter sammen: markdown-it
+     alene trakk 22 forespørsler direkte fra esm.sh, men er én fil her.
+
+     De bare modulnavnene ("preact") er det htm-preact.js og preact-hooks.js
+     importerer internt; import map-en er det som gjør at de finner hverandre
+     lokalt i stedet for å gå ut på nettet.
+
+     Vil du tilbake til esm.sh, er det kun de fire stiene under som endres:
+       "preact":      "https://esm.sh/preact@10.25.4"
+       "preact/hooks": "https://esm.sh/preact@10.25.4/hooks"
+       "htm/preact":  "https://esm.sh/htm@3.1.1/preact?deps=preact@10.25.4"
+       "markdown-it": "https://esm.sh/markdown-it@14.1.0?bundle" #}
+  <script type="importmap">
+    {
+      "imports": {
+        "preact": "/static/vendor/preact.js",
+        "preact/hooks": "/static/vendor/preact-hooks.js",
+        "htm/preact": "/static/vendor/htm-preact.js",
+        "markdown-it": "/static/vendor/markdown-it.js"
+      }
+    }
+  </script>
+  <script type="module" src="/static/editor.js"></script>
+{% endblock %}
+
+{% block innhold %}
+  <h1>Skriv</h1>
+
+  {# Islanden. Rust legger startverdiene i data-attributter, så Preact slipper et
+     ekstra API-kall for å hente det den skal redigere. Alt utenfor denne div-en
+     er server-rendret HTML. #}
+  <div
+    id="editor"
+    data-slug="{{ slug }}"
+    data-tittel="{{ tittel }}"
+    data-innhold="{{ innhold }}"
+  >
+    <noscript>Editoren krever JavaScript. Lesesidene gjør det ikke.</noscript>
+  </div>
+{% endblock %}

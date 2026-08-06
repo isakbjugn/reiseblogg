@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block tittel %}Sør-Amerika – reiseblogg{% endblock %}
+
+{% block innhold %}
+  <h1>Sør-Amerika</h1>
+  <p class="ingress">Reisebrev fra to på vandring.</p>
+
+  {# Løkka beviser interpolering per post – nettopp det en SPA ikke trenger,
+     og grunnen til at vi vil ha en template-motor. #}
+  <ul class="postliste">
+    {% for post in poster %}
+      <li>
+        <a href="/post/{{ post.slug }}">{{ post.tittel }}</a>
+        <time datetime="{{ post.dato }}">{{ post.dato }}</time>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}

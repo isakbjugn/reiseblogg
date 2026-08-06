@@ -1,0 +1,11 @@
+[package]
+name = "reiseblogg"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8.9"
+minijinja = { version = "2.22.0", features = ["loader"] }
+serde = { version = "1.0.229", features = ["derive"] }
+tokio = { version = "1.53.1", features = ["full"] }
+tower-http = { version = "0.7.0", features = ["compression-br", "compression-gzip", "fs", "set-header"] }
