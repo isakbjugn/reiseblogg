@@ -22,7 +22,7 @@ const kladdNøkkel = (slug) => `reiseblogg:kladd:${slug || 'ny'}`;
 // pulldown-cmark på samme innstilling – ellers divergerer de to. Se CLAUDE.md.
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
 
-function Editor({ slug, handling, startTittel, startInnhold }) {
+function Editor({ slug, handling, avbryt, startTittel, startInnhold }) {
   // Kladd fra localStorage vinner over serverens startverdi: mistet nett eller
   // et uhell med refresh skal ikke spise det du har skrevet. Kritisk på reise.
   const kladd = useMemo(() => {
@@ -88,6 +88,7 @@ function Editor({ slug, handling, startTittel, startInnhold }) {
         <button type="submit">Lagre</button>
         ${harUlagretKladd
           && html`<button type="button" class="sekundaer" onClick=${forkast}>Forkast endringer</button>`}
+        <a href=${avbryt} class="sekundaer">Avbryt</a>
       </div>
 
       <p class="hint">
@@ -112,6 +113,7 @@ render(
     handling=${rot.dataset.handling}
     startTittel=${rot.dataset.tittel}
     startInnhold=${rot.dataset.innhold}
+    avbryt=${rot.dataset.avbryt}
   />`,
   rot,
 );

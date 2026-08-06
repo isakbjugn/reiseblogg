@@ -225,6 +225,7 @@ pub async fn ny_post(State(state): State<Arc<AppState>>) -> Result<Html<String>,
         context! {
             overskrift => "Ny post",
             handling => "/ny",
+            avbryt => "/",
             slug => "",
             tittel => "",
             innhold => NY_POST_MAL,
@@ -247,6 +248,7 @@ pub async fn rediger_post(
         context! {
             overskrift => format!("Rediger «{}»", post.tittel),
             handling => format!("/rediger/{}", post.slug),
+            avbryt => format!("/post/{}", post.slug),
             slug => post.slug,
             tittel => post.tittel,
             innhold => post.innhold,

@@ -473,12 +473,23 @@ button:hover {
   border-color: var(--tekst);
 }
 
-button.sekundaer {
+button.sekundaer,
+a.sekundaer {
+  display: inline-block;
   background: none;
   color: var(--aksent);
 }
 
-button.sekundaer:hover {
+a.sekundaer {
+  font-weight: 700;
+  padding: 0.6rem 1.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  text-decoration: none;
+}
+
+button.sekundaer:hover,
+a.sekundaer:hover {
   background: rgb(74 93 67 / 10%);
   color: var(--aksent);
   border-color: var(--aksent);
