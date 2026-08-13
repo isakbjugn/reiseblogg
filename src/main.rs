@@ -20,12 +20,14 @@ use axum::http::{HeaderValue, StatusCode, header};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::get;
 use minijinja::{Environment, context, path_loader};
+use sqlx::postgres::PgPoolOptions;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
 /// Delt tilstand. `PgPool` kommer inn her ved siden av `env` i steg 2.
 pub struct AppState {
+    db: sqlx::PgPool,
     env: Environment<'static>,
 }
 
@@ -74,7 +76,20 @@ async fn ikke_funnet(State(state): State<Arc<AppState>>) -> Response {
 
 #[tokio::main]
 async fn main() {
-    let state = Arc::new(AppState { env: build_env() });
+    dotenvy::dotenv().ok();
+
+    let db = PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&std::env::var("DATABASE_URL").expect("DATABASE_URL må være satt"))
+        .await
+        .expect("Klarte ikke å koble til databasen");
+
+    sqlx::migrate!("./migrations")
+        .run(&db)
+        .await
+        .expect("Klarte ikke å gjøre database-migrering");
+
+    let state = Arc::new(AppState { db, env: build_env() });
 
     // Egenhostede avhengigheter er versjonspinnet og uforanderlige, så de kan caches
     // hardt. `ServeDir` (tower-http `fs`-featuren) serverer dem – ingenting går ut
