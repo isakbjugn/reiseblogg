@@ -6,6 +6,7 @@ rust-version = "1.96"
 
 [dependencies]
 axum = "0.8.9"
+chrono = "0.4"
 dotenvy = "0.15.7"
 minijinja = { version = "2.22.0", features = ["loader"] }
 pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }

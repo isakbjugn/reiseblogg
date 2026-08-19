@@ -1,0 +1,76 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT p.slug, p.title, p.content, p.published_at AS \"published_at!\", a.name AS forfatter\n        FROM post p\n        JOIN author a ON a.id = p.created_by\n        WHERE p.slug = $1 AND p.published_at IS NOT NULL\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "slug",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "post",
+            "name": "slug"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "title",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "post",
+            "name": "title"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "post",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "published_at!",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "post",
+            "name": "published_at"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "forfatter",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "author",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "c8d2eac65dcb3d9cb5679da0436a5d7935cda92025177a598100a8a022e3ca41"
+}

@@ -1,8 +1,7 @@
-//! Poster: data og handlere for lesesidene og editoren.
+//! Poster: handlere for lesesidene og editoren.
 //!
-//! Postene er hardkodet i `alle_poster()` inntil databasen kommer i steg 2. Formen
-//! på `Post` er valgt for å matche `post`-tabellen i planen, så byttet blir å
-//! erstatte én funksjon – ikke å endre handlerne.
+//! Postene leses fra `post`-tabellen via `crate::db::post`. Skriving og
+//! publisering kommer i steg 4 (se PLAN.md).
 
 use std::sync::Arc;
 
@@ -10,78 +9,41 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::Html;
 use minijinja::context;
+use sqlx::Error;
 
-use crate::markdown;
-use crate::{AppState, rendre};
+use crate::db::post::{db_get_post, db_get_poster, db_get_publisert_post};
+use crate::types::post::{PostRad, PostVisning};
+use crate::{AppState, markdown, rendre};
 
-/// En bloggpost. Speiler `post`-tabellen fra PLAN.md, uten id-ene ennå.
-pub struct Post {
-    pub slug: &'static str,
-    pub tittel: &'static str,
-    /// ISO-format (`YYYY-MM-DD`). Blir `published_at` i databasen.
-    pub dato: &'static str,
-    pub forfatter: &'static str,
-    /// Markdown, ikke HTML. Rendres av `markdown::til_html` ved visning.
-    pub innhold: &'static str,
+/// Konverterer en DB-rad til visningstypen templatene ser.
+///
+/// Konverteringen ligger her, i handler-filen, som i fagord (`articles.rs`) –
+/// `types/` holder bare selve typene. `created_by`/`updated_by` ble aldri
+/// selekt-ert, så radene har ingenting som kan lekke ut.
+impl PostVisning {
+    fn fra_rad(rad: PostRad) -> Self {
+        // Bevisst UTC: datoen brukes bare til visning, og `published_at` settes
+        // med `now()` ved publisering (steg 4). Om datodriften irriterer, er
+        // `chrono-tz` (Europe/Oslo) den naturlige løsningen.
+        let dato = rad.published_at.format("%Y-%m-%d").to_string();
+        Self {
+            slug: rad.slug,
+            tittel: rad.title,
+            dato_lesbar: norsk_dato(&dato),
+            dato,
+            forfatter: rad.forfatter,
+            sammendrag: markdown::sammendrag(&rad.content, 180),
+            innhold_html: markdown::til_html(&rad.content),
+        }
+    }
 }
 
-/// Stand-in for databasen. Nyeste først – samme rekkefølge som
-/// `ORDER BY published_at DESC` vil gi.
-fn alle_poster() -> Vec<Post> {
-    vec![
-        Post {
-            slug: "cusco-og-hoydesyke",
-            tittel: "Cusco og høydesyke",
-            dato: "2026-08-02",
-            forfatter: "Isak",
-            innhold: "Vi kom til Cusco i går kveld, 3400 meter over havet, og \
-                      merket det med en gang. Ikke dramatisk -- bare en dump \
-                      hodepine og en puls som lå høyere enn den burde.\n\n\
-                      ## Cocatea og tidlig kveld\n\n\
-                      Verten på hostellet kokte cocatea uten å bli spurt. Det \
-                      hjelper visst, og vi la oss klokka ni som to pensjonister.\n\n\
-                      - Drikk mer vann enn du tror du trenger\n\
-                      - Ikke gå fort oppover trapper\n\
-                      - Ta det første døgnet rolig\n\n\
-                      I morgen skal vi bare gå rundt i byen. **Machu Picchu** får \
-                      vente til kroppen har vent seg til luften.",
-        },
-        Post {
-            slug: "buss-gjennom-atacama",
-            tittel: "Buss gjennom Atacama",
-            dato: "2026-07-28",
-            forfatter: "Ingrid",
-            innhold: "Fjorten timer i buss gjennom verdens tørreste ørken. Det \
-                      høres verre ut enn det var.\n\n\
-                      Landskapet skifter fra rustrødt til nesten hvitt, og så \
-                      tilbake igjen, og du sitter og ser på det uten å kjede deg. \
-                      Ingen trær. Ingen skilt. En og annen bil i motsatt retning.\n\n\
-                      > Det nærmeste jeg har vært en annen planet.\n\n\
-                      Vi stoppet i San Pedro sent på kvelden. Stjernehimmelen der \
-                      er den beste jeg har sett -- ingen lys på mange mil.",
-        },
-        Post {
-            slug: "forste-dag-i-bogota",
-            tittel: "Første dag i Bogotá",
-            dato: "2026-07-21",
-            forfatter: "Isak",
-            innhold: "Vi landet i går, og har brukt dagen på å ikke gjøre særlig \
-                      mye. Det var planen.\n\n\
-                      Bogotá ligger på 2600 meter, så vi rakk å bli litt \
-                      andpustne av å gå oppover mot La Candelaria. Byen er \
-                      større enn jeg hadde forestilt meg, og kaldere.\n\n\
-                      ## Det vi spiste\n\n\
-                      *Ajiaco* -- en suppe med kylling, mais og poteter, servert \
-                      med avokado og kapers ved siden av. Anbefales når du er \
-                      kald og trøtt etter en nattflyvning.\n\n\
-                      Fire måneder gjenstår.",
-        },
-    ]
-}
-
-/// Slår opp én post på slug.
-fn finn_post(slug: &str) -> Option<Post> {
-    alle_poster().into_iter().find(|p| p.slug == slug)
+/// SQLx-feil som ikke er «raden finnes ikke»: logg og svar 500.
+///
+/// `eprintln!` framfor tracing: tracing kommer inn med auth-koden i steg 3.
+fn db_feil(e: Error) -> StatusCode {
+    eprintln!("Databasefeil: {e:#?}");
+    StatusCode::INTERNAL_SERVER_ERROR
 }
 
 /// Norske månedsnavn. Brukes til lesbare datoer og arkivgruppering.
@@ -125,16 +87,19 @@ fn norsk_dato(iso: &str) -> String {
 
 /// Forsiden: postliste med sammendrag.
 pub async fn forside(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
-    let poster: Vec<_> = alle_poster()
-        .iter()
+    let poster: Vec<_> = db_get_poster(&state.db)
+        .await
+        .map_err(db_feil)?
+        .into_iter()
+        .map(PostVisning::fra_rad)
         .map(|p| {
             context! {
                 slug => p.slug,
                 tittel => p.tittel,
                 dato => p.dato,
-                dato_lesbar => norsk_dato(p.dato),
+                dato_lesbar => p.dato_lesbar,
                 forfatter => p.forfatter,
-                sammendrag => markdown::sammendrag(p.innhold, 180),
+                sammendrag => p.sammendrag,
             }
         })
         .collect();
@@ -147,7 +112,15 @@ pub async fn vis_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
 ) -> Result<Html<String>, StatusCode> {
-    let post = finn_post(&slug).ok_or(StatusCode::NOT_FOUND)?;
+    // `RowNotFound` dekker både ukjent slug og kladd – begge er 404 på lesesiden,
+    // så en kladd-slug avslører ikke at posten finnes.
+    let rad = db_get_publisert_post(&slug, &state.db)
+        .await
+        .map_err(|e| match e {
+            Error::RowNotFound => StatusCode::NOT_FOUND,
+            e => db_feil(e),
+        })?;
+    let post = PostVisning::fra_rad(rad);
 
     rendre(
         &state,
@@ -156,30 +129,35 @@ pub async fn vis_post(
             slug => post.slug,
             tittel => post.tittel,
             dato => post.dato,
-            dato_lesbar => norsk_dato(post.dato),
+            dato_lesbar => post.dato_lesbar,
             forfatter => post.forfatter,
-            innhold => markdown::til_html(post.innhold),
+            innhold => post.innhold_html,
             // Til <meta description> og Open Graph.
-            sammendrag => markdown::sammendrag(post.innhold, 180),
+            sammendrag => post.sammendrag,
         },
     )
 }
 
 /// Arkiv: alle poster gruppert på år og måned.
 pub async fn arkiv(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
-    // Postene er allerede sortert nyeste først, så vi kan gruppere sekvensielt og
-    // slipper å sortere gruppene etterpå.
+    // db_get_poster er allerede sortert nyeste først, så vi kan gruppere
+    // sekvensielt og slipper å sortere gruppene etterpå.
     let mut grupper: Vec<minijinja::Value> = Vec::new();
     let mut nåværende: Option<(i32, u32, Vec<minijinja::Value>)> = None;
 
-    for post in alle_poster() {
-        let (år, måned, _) = del_dato(post.dato).unwrap_or((0, 0, 0));
+    for post in db_get_poster(&state.db)
+        .await
+        .map_err(db_feil)?
+        .into_iter()
+        .map(PostVisning::fra_rad)
+    {
+        let (år, måned, _) = del_dato(&post.dato).unwrap_or((0, 0, 0));
 
         let oppføring = context! {
             slug => post.slug,
             tittel => post.tittel,
             dato => post.dato,
-            dato_lesbar => norsk_dato(post.dato),
+            dato_lesbar => post.dato_lesbar,
             forfatter => post.forfatter,
         };
 
@@ -240,18 +218,23 @@ pub async fn rediger_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
 ) -> Result<Html<String>, StatusCode> {
-    let post = finn_post(&slug).ok_or(StatusCode::NOT_FOUND)?;
+    let rad = db_get_post(&slug, &state.db)
+        .await
+        .map_err(|e| match e {
+            Error::RowNotFound => StatusCode::NOT_FOUND,
+            e => db_feil(e),
+        })?;
 
     rendre(
         &state,
         "editor.html",
         context! {
-            overskrift => format!("Rediger «{}»", post.tittel),
-            handling => format!("/rediger/{}", post.slug),
-            avbryt => format!("/post/{}", post.slug),
-            slug => post.slug,
-            tittel => post.tittel,
-            innhold => post.innhold,
+            overskrift => format!("Rediger «{}»", rad.title),
+            handling => format!("/rediger/{}", rad.slug),
+            avbryt => format!("/post/{}", rad.slug),
+            slug => rad.slug,
+            tittel => rad.title,
+            innhold => rad.content,
         },
     )
 }
@@ -259,31 +242,6 @@ pub async fn rediger_post(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn poster_er_sortert_nyeste_forst() {
-        let poster = alle_poster();
-        let datoer: Vec<_> = poster.iter().map(|p| p.dato).collect();
-        let mut sortert = datoer.clone();
-        sortert.sort_unstable_by(|a, b| b.cmp(a));
-        assert_eq!(datoer, sortert, "forsiden viser dem i denne rekkefølgen");
-    }
-
-    #[test]
-    fn slugs_er_unike() {
-        let poster = alle_poster();
-        let mut slugs: Vec<_> = poster.iter().map(|p| p.slug).collect();
-        slugs.sort_unstable();
-        let antall = slugs.len();
-        slugs.dedup();
-        assert_eq!(slugs.len(), antall, "slug må være unik – den er nøkkelen i URL-en");
-    }
-
-    #[test]
-    fn finn_post_treffer_og_bommer() {
-        assert!(finn_post("cusco-og-hoydesyke").is_some());
-        assert!(finn_post("finnes-ikke").is_none());
-    }
 
     #[test]
     fn norsk_dato_formaterer() {

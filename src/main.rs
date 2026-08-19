@@ -1,6 +1,7 @@
 //! Reiseblogg – én Rust-app som rendrer HTML og serverer editoren.
 //!
-//! Databasen kommer i steg 2 (se PLAN.md); postene er hardkodet inntil da.
+//! Postene kommer fra databasen (`db::post`). Skriving og publisering kommer
+//! i steg 4 (se PLAN.md).
 //!
 //! Tre valg som ligger til grunn:
 //!
@@ -9,8 +10,10 @@
 //! 3. Ingen byggekjede. Nettleseren laster ES-moduler direkte, og `cargo run`
 //!    er hele oppsettet.
 
+mod db;
 mod markdown;
 mod poster;
+mod types;
 
 use std::sync::Arc;
 
@@ -25,7 +28,7 @@ use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
-/// Delt tilstand. `PgPool` kommer inn her ved siden av `env` i steg 2.
+/// Delt tilstand: databasepoolen for post-lesing og minijinja-miljøet.
 pub struct AppState {
     db: sqlx::PgPool,
     env: Environment<'static>,
