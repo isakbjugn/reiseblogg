@@ -4,4 +4,6 @@
 //! `&PgPool` som siste argument og propagerer `sqlx::Error` – handlerne mapper
 //! til HTTP-statuser.
 
+pub mod magic_token;
 pub mod post;
+pub mod session;

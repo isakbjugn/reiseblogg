@@ -38,8 +38,15 @@
       <nav>
         <a href="/arkiv">Arkiv</a>
         <a href="/om-oss">Om oss</a>
-        {# Innloggingsstatus styrer denne i steg 3. #}
-        <a href="/ny">Skriv</a>
+        {% if paalogget %}
+          <a href="/ny">Skriv</a>
+          {# Utlogging er en POST (CSRF: ingen skrive-endepunkt svarer på GET). #}
+          <form method="post" action="/logg-ut">
+            <button class="logg-ut" type="submit">Logg ut</button>
+          </form>
+        {% else %}
+          <a href="/logg-inn">Logg inn</a>
+        {% endif %}
       </nav>
     </header>
 

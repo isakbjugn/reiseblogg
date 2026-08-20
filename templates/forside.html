@@ -8,6 +8,20 @@
     <p class="ingress">Reisebrev fra Isak og Ingrid, fire måneder sørover.</p>
   </div>
 
+  {% if kladder %}
+    <section class="kladder">
+      <h2>Kladder</h2>
+      <ul>
+        {% for kladd in kladder %}
+          <li>
+            <a href="/rediger/{{ kladd.slug }}">{{ kladd.tittel }}</a>
+            <span class="meta">sist endret {{ kladd.sist_endret }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
   {# Løkka er grunnen til at vi vil ha en template-motor: antall poster er ukjent
      når fila skrives. #}
   <div class="postliste">

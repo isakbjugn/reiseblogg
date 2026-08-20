@@ -11,7 +11,8 @@ use axum::response::Html;
 use minijinja::context;
 use sqlx::Error;
 
-use crate::db::post::{db_get_post, db_get_poster, db_get_publisert_post};
+use crate::db::post::{db_get_kladder, db_get_post, db_get_poster, db_get_publisert_post};
+use crate::extract::AuthenticatedAuthor;
 use crate::types::post::{PostRad, PostVisning};
 use crate::{AppState, markdown, rendre};
 
@@ -39,10 +40,8 @@ impl PostVisning {
 }
 
 /// SQLx-feil som ikke er «raden finnes ikke»: logg og svar 500.
-///
-/// `eprintln!` framfor tracing: tracing kommer inn med auth-koden i steg 3.
 fn db_feil(e: Error) -> StatusCode {
-    eprintln!("Databasefeil: {e:#?}");
+    tracing::error!("Databasefeil: {e:#?}");
     StatusCode::INTERNAL_SERVER_ERROR
 }
 
@@ -86,7 +85,10 @@ fn norsk_dato(iso: &str) -> String {
 }
 
 /// Forsiden: postliste med sammendrag.
-pub async fn forside(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
+pub async fn forside(
+    State(state): State<Arc<AppState>>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Html<String>, StatusCode> {
     let poster: Vec<_> = db_get_poster(&state.db)
         .await
         .map_err(db_feil)?
@@ -104,22 +106,47 @@ pub async fn forside(State(state): State<Arc<AppState>>) -> Result<Html<String>,
         })
         .collect();
 
-    rendre(&state, "forside.html", context! { poster })
+    // Kun egne kladder – `db_get_kladder` filtrerer på `created_by`.
+    let kladder: Vec<_> = match &author {
+        Some(a) => db_get_kladder(a.id, &state.db)
+            .await
+            .map_err(db_feil)?
+            .into_iter()
+            .map(|k| {
+                let dato = k.updated_at.format("%Y-%m-%d").to_string();
+                context! {
+                    slug => k.slug,
+                    tittel => k.title,
+                    sist_endret => norsk_dato(&dato),
+                }
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+
+    rendre(
+        &state,
+        "forside.html",
+        context! {
+            poster,
+            kladder,
+            paalogget => author.is_some(),
+        },
+    )
 }
 
 /// En enkelt post. Markdown rendres her, ikke i templaten.
 pub async fn vis_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
 ) -> Result<Html<String>, StatusCode> {
     // `RowNotFound` dekker både ukjent slug og kladd – begge er 404 på lesesiden,
     // så en kladd-slug avslører ikke at posten finnes.
-    let rad = db_get_publisert_post(&slug, &state.db)
-        .await
-        .map_err(|e| match e {
-            Error::RowNotFound => StatusCode::NOT_FOUND,
-            e => db_feil(e),
-        })?;
+    let rad = db_get_publisert_post(&slug, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
     let post = PostVisning::fra_rad(rad);
 
     rendre(
@@ -134,12 +161,16 @@ pub async fn vis_post(
             innhold => post.innhold_html,
             // Til <meta description> og Open Graph.
             sammendrag => post.sammendrag,
+            paalogget => author.is_some(),
         },
     )
 }
 
 /// Arkiv: alle poster gruppert på år og måned.
-pub async fn arkiv(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
+pub async fn arkiv(
+    State(state): State<Arc<AppState>>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Html<String>, StatusCode> {
     // db_get_poster er allerede sortert nyeste først, så vi kan gruppere
     // sekvensielt og slipper å sortere gruppene etterpå.
     let mut grupper: Vec<minijinja::Value> = Vec::new();
@@ -184,19 +215,29 @@ pub async fn arkiv(State(state): State<Arc<AppState>>) -> Result<Html<String>, S
         });
     }
 
-    rendre(&state, "arkiv.html", context! { grupper })
+    rendre(
+        &state,
+        "arkiv.html",
+        context! { grupper, paalogget => author.is_some() },
+    )
 }
 
 /// Om oss – statisk side.
-pub async fn om_oss(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
-    rendre(&state, "om-oss.html", context! {})
+pub async fn om_oss(
+    State(state): State<Arc<AppState>>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Html<String>, StatusCode> {
+    rendre(&state, "om-oss.html", context! { paalogget => author.is_some() })
 }
 
 const NY_POST_MAL: &str = "Skriv her.\n\n\
                            Forhåndsvisningen til høyre oppdateres mens du skriver.\n";
 
 /// Ny post: tom editor.
-pub async fn ny_post(State(state): State<Arc<AppState>>) -> Result<Html<String>, StatusCode> {
+pub async fn ny_post(
+    State(state): State<Arc<AppState>>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Html<String>, StatusCode> {
     rendre(
         &state,
         "editor.html",
@@ -207,6 +248,7 @@ pub async fn ny_post(State(state): State<Arc<AppState>>) -> Result<Html<String>,
             slug => "",
             tittel => "",
             innhold => NY_POST_MAL,
+            paalogget => author.is_some(),
         },
     )
 }
@@ -217,13 +259,12 @@ pub async fn ny_post(State(state): State<Arc<AppState>>) -> Result<Html<String>,
 pub async fn rediger_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
 ) -> Result<Html<String>, StatusCode> {
-    let rad = db_get_post(&slug, &state.db)
-        .await
-        .map_err(|e| match e {
-            Error::RowNotFound => StatusCode::NOT_FOUND,
-            e => db_feil(e),
-        })?;
+    let rad = db_get_post(&slug, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
 
     rendre(
         &state,
@@ -235,6 +276,7 @@ pub async fn rediger_post(
             slug => rad.slug,
             tittel => rad.title,
             innhold => rad.content,
+            paalogget => author.is_some(),
         },
     )
 }

@@ -29,6 +29,15 @@ pub struct PostRedigerRad {
     pub content: String,
 }
 
+/// Kladd til forsiden – slug, tittel og når den sist ble endret. Vises kun for
+/// eieren, så `created_by`-filteret ligger i spørringen.
+#[derive(Debug, FromRow)]
+pub struct KladdRad {
+    pub slug: String,
+    pub title: String,
+    pub updated_at: DateTime<Utc>,
+}
+
 /// Visningstypen templatene ser. Bygges fra `PostRad` i `poster.rs` – fagord
 /// gjør konverteringen i handler-filen, ikke i types/.
 pub struct PostVisning {
