@@ -123,7 +123,9 @@ Dette er den ene reelle forenklingen ved å slå sammen:
 Herfra kommer den andre halvdelen: `fagord-rust-api` har
 `// TODO (byggesteg 6): send koden på e-post i stedet for å logge den`.
 
-- `src/utils/emails.rs` (lettre + minijinja) og `templates/*.html` fra `rust-auth`
+- `src/email.rs` sender via **Resend over HTTPS** (`resend-rs`), ikke SMTP/lettre.
+  Railway blokkerer utgående SMTP (25/465/587) på Hobby-planen; HTTPS er tillatt.
+- Minijinja-rendereren (`templates/epost/magic-kode.html`) gjenbrukes, mønsteret ellers fra `rust-auth`
 - **Ikke** Argon2/PASETO/`confirmation_token.rs` – annen auth-modell, eldre
 
 **Ferdig når:** du får engangskode på e-post, logger inn, og ser kladdene dine.
@@ -185,7 +187,7 @@ backend betyr dobbel overføring og timeout på dårlig nett.
 - **Dockerfile:** flerstegs. `cargo build --release` (profilen finnes:
   `strip`/`lto`/`opt-level = "s"`), så kopier binæret + `templates/` + `static/`.
   **Ingen Node** – vendor-filene ligger i git.
-- Railway: én tjeneste + Postgres. Env: `DATABASE_URL`, SMTP-oppsett, R2-nøkler.
+- Railway: én tjeneste + Postgres. Env: `DATABASE_URL`, `RESEND_API_KEY` + `RESEND_FROM`, R2-nøkler.
 - `sqlx migrate run` ved oppstart eller som eget steg
 - Eget domene + HTTPS
 - Legg inn dere to som forfattere i prod med `psql`
