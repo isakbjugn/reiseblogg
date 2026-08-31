@@ -74,7 +74,7 @@ den – blandede versjoner mellom prosjektene gir forvirrende `.sqlx`-cache-feil
 
 | Tabell | Felt |
 |---|---|
-| `author` | `id, email` (unik på `lower(email)`), `name, role ('author'\|'admin'), created_at, updated_at` |
+| `author` | `id, email` (unik på `lower(email)`), `name` |
 | `post` | `id, slug` (unik), `title, content` (Markdown), `published_at` (nullable), `created_by, updated_by, created_at, updated_at` |
 
 - Gjenbruk `set_updated_at()`-triggeren fra fagord-rust-api
@@ -100,7 +100,7 @@ Hentes fra `fagord-rust-api` – dette er den mest gjennomtenkte koden du har.
 
 ### Kopier ~uendret
 
-`src/auth.rs`, `src/tokens.rs`, `src/extract.rs` (`AuthenticatedContributor`,
+`src/auth.rs`, `src/tokens.rs`, `src/extract.rs` (`AuthenticatedAuthor`,
 `HasDb`-traiten), `src/db/magic_token.rs`, `src/db/session.rs`, `src/rate_limit.rs`,
 migrasjonene for `magic_tokens` og `session`.
 
@@ -132,10 +132,10 @@ Herfra kommer den andre halvdelen: `fagord-rust-api` har
 
 ## Steg 4: Publisering, redigering, sletting
 
-Håndhevingen finnes ferdig i `articles.rs` (`authorize_owner_or_admin`, `actions_for`).
+Autorisasjonen forenkles: enhver innlogget forfatter kan endre og slette alt innhold.
 
 - `POST /ny`, `POST /rediger/{slug}`, `POST /slett/{slug}`
-- Regel: **eier ELLER admin**. `404` hvis slug mangler, `403` hvis annen eier.
+- Regel: **enhver innlogget forfatter**. `404` hvis slug mangler.
 - `actions`-mønsteret: templaten får `["endre", "slett"]` og vet hvilke knapper å vise
 - Publiser/avpubliser setter `published_at`
 - **Progressive enhancement:** vanlige `<form method="post">`, så publisering fungerer
@@ -210,7 +210,7 @@ backend betyr dobbel overføring og timeout på dårlig nett.
 ## Bevisste utelatelser
 
 - **Ingen registreringsflyt.** To brukere, `psql` er raskere.
-- **Ingen roller utover author/admin.**
+- **Ingen roller.** To forfattere med lik tilgang.
 - **Ingen tester i steg 1–2.** Kommer i steg 3–4, der auth og autorisasjon faktisk
   har regler verdt å teste. `tests/auth.rs` og `tests/articles.rs` fra fagord-rust-api
   er utgangspunktet.

@@ -165,6 +165,30 @@ img {
   display: flex;
   gap: 1.25rem;
   font-size: 0.95rem;
+  align-items: center;
+}
+
+/* «Logg ut» er et skjema (POST, jf. CSRF – ingen skrive-endepunkt på GET), men
+   skal se ut som en vanlig nav-lenke. */
+.topp nav form {
+  display: inline;
+}
+
+.topp nav button.logg-ut {
+  font: inherit;
+  font-weight: 400;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.topp nav button.logg-ut:hover {
+  color: var(--aksent);
+  background: none;
 }
 
 main {
@@ -516,4 +540,44 @@ summary {
 
 details[open] summary {
   margin-bottom: 0.5rem;
+}
+
+/* Innlogging */
+
+.logginn {
+  max-width: 24rem;
+  margin-top: 1.5rem;
+}
+
+.logginn label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+}
+
+.logginn input {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--kantlinje);
+  border-radius: var(--radius);
+  font: inherit;
+  background: var(--kort);
+  color: inherit;
+  margin-bottom: 1rem;
+}
+
+.feil {
+  color: #9c3a2f;
+  font-weight: 700;
+}
+
+/* Kladder på forsiden */
+
+.kladder {
+  margin-bottom: 2.5rem;
+}
+
+.kladder ul {
+  padding-left: 1.2rem;
 }

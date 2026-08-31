@@ -8,7 +8,7 @@
 
 use sqlx::PgPool;
 
-use crate::types::post::{PostRad, PostRedigerRad};
+use crate::types::post::{KladdRad, PostRad, PostRedigerRad};
 
 /// Publiserte poster, nyeste først. Forsiden og arkivet deler denne.
 pub async fn db_get_poster(db: &PgPool) -> Result<Vec<PostRad>, sqlx::Error> {
@@ -55,5 +55,22 @@ pub async fn db_get_post(slug: &str, db: &PgPool) -> Result<PostRedigerRad, sqlx
         slug,
     )
     .fetch_one(db)
+    .await
+}
+
+/// Kladdene til én forfatter, nyest endret først. Kun egne kladder – `created_by`
+/// er eieren, som autorisasjonen i steg 4 bygger på.
+pub async fn db_get_kladder(author_id: i32, db: &PgPool) -> Result<Vec<KladdRad>, sqlx::Error> {
+    sqlx::query_as!(
+        KladdRad,
+        r#"
+        SELECT slug, title, updated_at
+        FROM post
+        WHERE created_by = $1 AND published_at IS NULL
+        ORDER BY updated_at DESC
+        "#,
+        author_id,
+    )
+    .fetch_all(db)
     .await
 }

@@ -10,9 +10,14 @@
 //! 3. Ingen byggekjede. Nettleseren laster ES-moduler direkte, og `cargo run`
 //!    er hele oppsettet.
 
+mod auth;
 mod db;
+mod email;
+mod extract;
 mod markdown;
 mod poster;
+mod rate_limit;
+mod tokens;
 mod types;
 
 use std::sync::Arc;
@@ -20,18 +25,28 @@ use std::sync::Arc;
 use axum::Router;
 use axum::extract::State;
 use axum::http::{HeaderValue, StatusCode, header};
+use axum::middleware::from_fn_with_state;
 use axum::response::{Html, IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use minijinja::{Environment, context, path_loader};
 use sqlx::postgres::PgPoolOptions;
 use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
+use crate::extract::AuthenticatedAuthor;
+
 /// Delt tilstand: databasepoolen for post-lesing og minijinja-miljøet.
 pub struct AppState {
     db: sqlx::PgPool,
     env: Environment<'static>,
+}
+
+/// Lar extractors hente databasen ut av staten uten å kjenne hele AppState.
+impl extract::HasDb for Arc<AppState> {
+    fn db(&self) -> &sqlx::PgPool {
+        &self.db
+    }
 }
 
 /// Bygger minijinja-miljøet.
@@ -69,8 +84,8 @@ pub(crate) fn rendre(state: &AppState, navn: &str, ctx: minijinja::Value) -> Res
 ///
 /// Egen handler framfor axums standardsvar, så en feilstavet lenke gir en side med
 /// navigasjon tilbake – ikke en tom `Not Found` i klartekst.
-async fn ikke_funnet(State(state): State<Arc<AppState>>) -> Response {
-    match rendre(&state, "404.html", context! {}) {
+async fn ikke_funnet(State(state): State<Arc<AppState>>, author: Option<AuthenticatedAuthor>) -> Response {
+    match rendre(&state, "404.html", context! { paalogget => author.is_some() }) {
         Ok(html) => (StatusCode::NOT_FOUND, html).into_response(),
         // Feiler selve feilsiden, vil vi ikke skjule det bak en 500.
         Err(_) => (StatusCode::NOT_FOUND, "Siden finnes ikke").into_response(),
@@ -80,6 +95,7 @@ async fn ikke_funnet(State(state): State<Arc<AppState>>) -> Response {
 #[tokio::main]
 async fn main() {
     dotenvy::dotenv().ok();
+    tracing_subscriber::fmt::init();
 
     let db = PgPoolOptions::new()
         .max_connections(5)
@@ -93,6 +109,20 @@ async fn main() {
         .expect("Klarte ikke å gjøre database-migrering");
 
     let state = Arc::new(AppState { db, env: build_env() });
+
+    // Rate-limiter for offentlig auth-trafikk. I lokal utvikling (ingen edge-header)
+    // er den en no-op; se rate_limit.rs for begrunnelsen.
+    let limiter = rate_limit::build_limiter();
+    rate_limit::spawn_cleanup(limiter.clone());
+
+    // Auth-rutene i egen sub-router, så strupingen (route_layer) kun treffer disse,
+    // ikke resten av siden.
+    let auth_routes = Router::new()
+        .route("/logg-inn", get(auth::logg_inn_side).post(auth::request_magic_code))
+        .route("/logg-inn/verifiser", post(auth::verify_magic_code))
+        .route("/logg-ut", post(auth::logg_ut))
+        .route_layer(from_fn_with_state(limiter, rate_limit::rate_limit_external))
+        .with_state(state.clone());
 
     // Egenhostede avhengigheter er versjonspinnet og uforanderlige, så de kan caches
     // hardt. `ServeDir` (tower-http `fs`-featuren) serverer dem – ingenting går ut
@@ -114,6 +144,7 @@ async fn main() {
         .route("/om-oss", get(poster::om_oss))
         .route("/ny", get(poster::ny_post))
         .route("/rediger/{slug}", get(poster::rediger_post))
+        .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)
         .nest_service("/static", ServeDir::new("static"))
         .fallback(ikke_funnet)
@@ -127,6 +158,6 @@ async fn main() {
         .await
         .unwrap_or_else(|_| panic!("port {port} må være ledig"));
 
-    println!("Kjører på http://{adresse}");
+    tracing::info!("Kjører på http://{adresse}");
     axum::serve(listener, app).await.expect("serveren stoppet");
 }

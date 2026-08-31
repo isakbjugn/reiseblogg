@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block tittel %}Logg inn – Sør-Amerika{% endblock %}
+
+{% block innhold %}
+  <h1>Logg inn</h1>
+
+  {% if not kode_sendt %}
+    <p>Fyll inn e-posten din, så sender vi en engangskode du logger inn med.</p>
+    <form class="logginn" method="post" action="/logg-inn">
+      <label for="epost">E-post</label>
+      <input id="epost" name="epost" type="email" autocomplete="email" required autofocus />
+      <div class="knapperad">
+        <button type="submit">Send kode</button>
+      </div>
+    </form>
+  {% else %}
+    <p>Vi har sendt en kode til <strong>{{ epost }}</strong> (sjekk også søppelposten). Den utløper om 15 minutter.</p>
+    {% if feil %}<p class="feil" role="alert">{{ feil }}</p>{% endif %}
+    <form class="logginn" method="post" action="/logg-inn/verifiser">
+      <input type="hidden" name="epost" value="{{ epost }}" />
+      <label for="kode">Kode</label>
+      <input id="kode" name="kode" inputmode="text" autocomplete="one-time-code" required autofocus />
+      <div class="knapperad">
+        <button type="submit">Logg inn</button>
+        <a class="sekundaer" href="/logg-inn">Send ny kode</a>
+      </div>
+    </form>
+  {% endif %}
+{% endblock %}
