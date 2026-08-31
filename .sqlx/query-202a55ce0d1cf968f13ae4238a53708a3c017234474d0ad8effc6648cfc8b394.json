@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT a.id\n         FROM session s\n         JOIN author a ON a.id = s.author_id\n         WHERE s.token_hash = $1 AND s.expires_at > now()",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "author",
+            "name": "id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "202a55ce0d1cf968f13ae4238a53708a3c017234474d0ad8effc6648cfc8b394"
+}
