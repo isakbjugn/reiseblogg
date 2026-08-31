@@ -4,7 +4,7 @@
 
 use minijinja::{Environment, context};
 use resend_rs::types::CreateEmailBaseOptions;
-use resend_rs::{Resend, Result};
+use resend_rs::Resend;
 
 /// Sender engangskoden til e-postadressen, eller logger den hvis e-postutsending ikke er
 /// konfigurert (eller sending feiler). E-post er en sideeffekt – den kan ikke
@@ -45,7 +45,7 @@ fn rend_epost(env: &Environment<'static>, kode: &str) -> Result<(String, String)
     Ok((html, tekst))
 }
 
-async fn send_email(resend_api_key: &str, user_email: &str, html: &str, text: &str) -> Result<()> {
+async fn send_email(resend_api_key: &str, user_email: &str, html: &str, text: &str) -> resend_rs::Result<()> {
     let resend = Resend::new(resend_api_key);
 
     let from = std::env::var("RESEND_FROM").unwrap_or_else(|_| "onboarding@resend.dev".into());
@@ -56,8 +56,8 @@ async fn send_email(resend_api_key: &str, user_email: &str, html: &str, text: &s
       .with_html(html)
       .with_text(text);
 
-    let _email = resend.emails.send(email).await?;
-    println!("{:?}", _email);
+    let create_email_response = resend.emails.send(email).await?;
+    tracing::info!("Engangskode sendt til {} med ID {} via Resend", user_email, create_email_response.id);
 
     Ok(())
 }
