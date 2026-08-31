@@ -519,6 +519,19 @@ a.sekundaer:hover {
   border-color: var(--aksent);
 }
 
+/* Ødeleggende handling (slett). Mettet nok til å skille seg fra aksent-grønnen,
+   men dempet nok til å passe resten av paletten. */
+button.farlig {
+  background: #a3422e;
+  border-color: #a3422e;
+  color: #fdfcf7;
+}
+
+button.farlig:hover {
+  background: #7d3122;
+  border-color: #7d3122;
+}
+
 .hint {
   color: var(--dempet);
   font-size: 0.85rem;

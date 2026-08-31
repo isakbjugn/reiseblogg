@@ -1,17 +1,23 @@
-//! Poster: handlere for lesesidene og editoren.
+//! Poster: handlere for lesesidene, editoren og skriving (opprett, rediger,
+//! publiser/avpubliser, slett).
 //!
-//! Postene leses fra `post`-tabellen via `crate::db::post`. Skriving og
-//! publisering kommer i steg 4 (se PLAN.md).
+//! Postene leses og skrives via `crate::db::post`. Autorisasjonen er flat:
+//! enhver innlogget forfatter kan endre og slette alt innhold.
 
 use std::sync::Arc;
 
-use axum::extract::{Path, State};
-use axum::http::StatusCode;
-use axum::response::Html;
+use axum::extract::{Form, Path, State};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
+use axum::response::{Html, IntoResponse, Response};
+use chrono::Utc;
 use minijinja::context;
+use serde::Deserialize;
 use sqlx::Error;
 
-use crate::db::post::{db_get_kladder, db_get_post, db_get_poster, db_get_publisert_post};
+use crate::db::post::{
+    db_get_kladder, db_get_post, db_get_poster, db_get_publisert_post, db_oppdater_innhold, db_opprett_post,
+    db_sett_publisert, db_slett_post, db_slug_finnes,
+};
 use crate::extract::AuthenticatedAuthor;
 use crate::types::post::{PostRad, PostVisning};
 use crate::{AppState, markdown, rendre};
@@ -106,9 +112,10 @@ pub async fn forside(
         })
         .collect();
 
-    // Kun egne kladder – `db_get_kladder` filtrerer på `created_by`.
+    // Alle kladder, ikke bare egne – autorisasjonen er flat, så enhver innlogget
+    // forfatter skal se (og kunne redigere) alle utkast.
     let kladder: Vec<_> = match &author {
-        Some(a) => db_get_kladder(a.id, &state.db)
+        Some(_) => db_get_kladder(&state.db)
             .await
             .map_err(db_feil)?
             .into_iter()
@@ -149,6 +156,14 @@ pub async fn vis_post(
     })?;
     let post = PostVisning::fra_rad(rad);
 
+    // Autorisasjonen er flat: enhver innlogget forfatter kan endre og slette.
+    // Templaten bruker listen for å vise «Rediger»/«Slett» – utlogget er den tom.
+    let actions: Vec<&str> = if author.is_some() {
+        vec!["endre", "slett"]
+    } else {
+        vec![]
+    };
+
     rendre(
         &state,
         "post.html",
@@ -162,6 +177,7 @@ pub async fn vis_post(
             // Til <meta description> og Open Graph.
             sammendrag => post.sammendrag,
             paalogget => author.is_some(),
+            actions => actions,
         },
     )
 }
@@ -230,15 +246,94 @@ pub async fn om_oss(
     rendre(&state, "om-oss.html", context! { paalogget => author.is_some() })
 }
 
+/// Gjør en tittel om til en URL-slug: små bokstaver, norske tegn brettes til
+/// ASCII (`æ→ae`, `ø→o`, `å→a`), alt annet enn bokstaver/tall blir bindestrek.
+/// Repeterte bindestreker kollapses og kantene trimmes. En tittel som ikke gir
+/// noe (f.eks. bare symboler) faller tilbake til `"innlegg"`.
+///
+/// Slugen genereres kun ved oppretting og låses etterpå – se PLAN.md.
+fn slugifiser(tittel: &str) -> String {
+    let mut tegn = String::with_capacity(tittel.len());
+    for c in tittel.chars() {
+        match c {
+            'æ' | 'Æ' => tegn.push_str("ae"),
+            'ø' | 'Ø' => tegn.push('o'),
+            'å' | 'Å' => tegn.push('a'),
+            c if c.is_ascii_alphanumeric() => tegn.extend(c.to_lowercase()),
+            _ => tegn.push('-'),
+        }
+    }
+
+    // Kollaps repeterte bindestreker i én passering. Starter «i skilletegn» så en
+    // ledende bindestrek ikke dyttes inn – trimmen under er da kun for halen.
+    let mut slug = String::with_capacity(tegn.len());
+    let mut forrige_bindestrek = true;
+    for c in tegn.chars() {
+        if c == '-' {
+            if !forrige_bindestrek {
+                slug.push('-');
+            }
+            forrige_bindestrek = true;
+        } else {
+            slug.push(c);
+            forrige_bindestrek = false;
+        }
+    }
+
+    let slug = slug.trim_matches('-');
+    if slug.is_empty() {
+        "innlegg".to_string()
+    } else {
+        slug.to_string()
+    }
+}
+
+/// Finner en ledig slug for en tittel: starter med `slugifiser`, og legger på
+/// `-2`, `-3`, … hvis den alt finnes. Slugen låses ved oppretting – den endres
+/// aldri når posten først er lagret.
+async fn generer_ledig_slug(tittel: &str, db: &sqlx::PgPool) -> Result<String, sqlx::Error> {
+    let base = slugifiser(tittel);
+    let mut kandidat = base.clone();
+    let mut n = 2;
+    while db_slug_finnes(&kandidat, db).await? {
+        kandidat = format!("{base}-{n}");
+        n += 1;
+    }
+    Ok(kandidat)
+}
+
+/// Skjemaet fra editoren. `handling` er `name`-attributtet på submit-knappen:
+/// `lagre` (eller fraværende), `publiser` eller `avpubliser`. `Option` fordi en
+/// implicit submit (Enter i et felt) ikke sender noen knapp.
+#[derive(Deserialize)]
+pub struct PostSkjema {
+    pub tittel: String,
+    pub innhold: String,
+    pub handling: Option<String>,
+}
+
+/// 303-redirect. 303 (ikke 302) tvinger nettleseren til å følge med GET, så en
+/// refresh ikke re-poster skjemaet – samme grunn som i `auth.rs`.
+fn redirect(location: &str) -> Response {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::LOCATION, HeaderValue::from_str(location).expect("gyldig sti"));
+    (StatusCode::SEE_OTHER, headers).into_response()
+}
+
 const NY_POST_MAL: &str = "Skriv her.\n\n\
                            Forhåndsvisningen til høyre oppdateres mens du skriver.\n";
 
-/// Ny post: tom editor.
+/// Ny post: tom editor. Krever innlogging – uten sesjon redirecter vi til
+/// `/logg-inn` framfor å vise et skjema som likevel ikke kan lagres.
 pub async fn ny_post(
     State(state): State<Arc<AppState>>,
     author: Option<AuthenticatedAuthor>,
-) -> Result<Html<String>, StatusCode> {
-    rendre(
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let html = rendre(
         &state,
         "editor.html",
         context! {
@@ -248,37 +343,165 @@ pub async fn ny_post(
             slug => "",
             tittel => "",
             innhold => NY_POST_MAL,
-            paalogget => author.is_some(),
+            publisert => false,
+            paalogget => true,
         },
-    )
+    )?;
+    Ok(html.into_response())
 }
 
-/// Rediger eksisterende post: samme editor, forhåndsfylt.
-///
-/// Lagring kommer i steg 4 – handleren viser bare skjemaet nå.
+/// Rediger eksisterende post: samme editor, forhåndsfylt. Krever innlogging.
+/// `publisert` styrer om editoren viser «Publiser» (kladd) eller «Avpubliser».
 pub async fn rediger_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
     author: Option<AuthenticatedAuthor>,
-) -> Result<Html<String>, StatusCode> {
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
     let rad = db_get_post(&slug, &state.db).await.map_err(|e| match e {
         Error::RowNotFound => StatusCode::NOT_FOUND,
         e => db_feil(e),
     })?;
 
-    rendre(
+    // Avbryt peker tilbake dit posten faktisk lever: den publiserte siden, eller
+    // forsiden for en kladd (en kladd har ingen offentlig `/post/{slug}`).
+    let publisert = rad.published_at.is_some();
+    let avbryt = if publisert {
+        format!("/post/{}", rad.slug)
+    } else {
+        "/".to_string()
+    };
+
+    let html = rendre(
         &state,
         "editor.html",
         context! {
             overskrift => format!("Rediger «{}»", rad.title),
             handling => format!("/rediger/{}", rad.slug),
-            avbryt => format!("/post/{}", rad.slug),
+            avbryt => avbryt,
             slug => rad.slug,
             tittel => rad.title,
             innhold => rad.content,
-            paalogget => author.is_some(),
+            publisert => publisert,
+            paalogget => true,
         },
-    )
+    )?;
+    Ok(html.into_response())
+}
+
+/// POST /ny – oppretter posten, og publiserer den i samme operasjon hvis
+/// «Publiser»-knappen ble brukt. Slugen genereres her og låses for godt.
+pub async fn opprett_post(
+    State(state): State<Arc<AppState>>,
+    author: Option<AuthenticatedAuthor>,
+    Form(skjema): Form<PostSkjema>,
+) -> Result<Response, StatusCode> {
+    let Some(author) = author else {
+        return Ok(redirect("/logg-inn"));
+    };
+
+    let publiser = skjema.handling.as_deref() == Some("publiser");
+    let slug = generer_ledig_slug(&skjema.tittel, &state.db).await.map_err(db_feil)?;
+    db_opprett_post(&slug, &skjema.tittel, &skjema.innhold, author.id, publiser, &state.db)
+        .await
+        .map_err(db_feil)?;
+
+    Ok(if publiser {
+        redirect(&format!("/post/{slug}"))
+    } else {
+        redirect(&format!("/rediger/{slug}?lagret=1"))
+    })
+}
+
+/// POST /rediger/{slug} – lagrer tittel og innhold, og publiserer/avpubliserer
+/// hvis den knappen ble brukt. «Lagre» rører ikke `published_at`.
+pub async fn oppdater_post(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
+    Form(skjema): Form<PostSkjema>,
+) -> Result<Response, StatusCode> {
+    let Some(author) = author else {
+        return Ok(redirect("/logg-inn"));
+    };
+
+    // 404 hvis slugen mangler – `RETURNING slug` gir `RowNotFound`.
+    db_oppdater_innhold(&slug, &skjema.tittel, &skjema.innhold, author.id, &state.db)
+        .await
+        .map_err(|e| match e {
+            Error::RowNotFound => StatusCode::NOT_FOUND,
+            e => db_feil(e),
+        })?;
+
+    let handling = skjema.handling.as_deref();
+    match handling {
+        Some("publiser") => {
+            db_sett_publisert(&slug, Some(Utc::now()), author.id, &state.db)
+                .await
+                .map_err(db_feil)?;
+        }
+        Some("avpubliser") => {
+            db_sett_publisert(&slug, None, author.id, &state.db)
+                .await
+                .map_err(db_feil)?;
+        }
+        _ => {} // «lagre» beholder publiseringsstatusen.
+    }
+
+    Ok(if handling == Some("publiser") {
+        redirect(&format!("/post/{slug}"))
+    } else {
+        redirect(&format!("/rediger/{slug}?lagret=1"))
+    })
+}
+
+/// GET /slett/{slug} – bekreftelsesside før sletting. Ren HTML, ingen JavaScript:
+/// sletting er irreversibelt, så et ekstra klikk er billig forsikring.
+pub async fn slett_bekreft(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let rad = db_get_post(&slug, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
+
+    let html = rendre(
+        &state,
+        "slett.html",
+        context! {
+            slug => rad.slug,
+            tittel => rad.title,
+            paalogget => true,
+        },
+    )?;
+    Ok(html.into_response())
+}
+
+/// POST /slett/{slug} – sletter posten for godt.
+pub async fn slett_post(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    let Some(_) = author else {
+        return Ok(redirect("/logg-inn"));
+    };
+
+    db_slett_post(&slug, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
+
+    Ok(redirect("/"))
 }
 
 #[cfg(test)]
@@ -301,5 +524,29 @@ mod tests {
     fn del_dato_avviser_ufullstendig() {
         assert!(del_dato("2026-08").is_none());
         assert!(del_dato("").is_none());
+    }
+
+    #[test]
+    fn slugifiser_brekker_norske_tegn() {
+        assert_eq!(slugifiser("Cusco og høydesyke"), "cusco-og-hoydesyke");
+        assert_eq!(slugifiser("Ærfugl Øy Ås"), "aerfugl-oy-as");
+    }
+
+    #[test]
+    fn slugifiser_kollapser_og_trimmer_bindestreker() {
+        assert_eq!(slugifiser("  To   ord!  "), "to-ord");
+        assert_eq!(slugifiser("Hei,  verden!!!"), "hei-verden");
+    }
+
+    #[test]
+    fn slugifiser_takler_store_bokstaver_og_tall() {
+        assert_eq!(slugifiser("Tur 2026 til Lima"), "tur-2026-til-lima");
+    }
+
+    #[test]
+    fn slugifiser_faller_tilbake_pa_innlegg() {
+        assert_eq!(slugifiser(""), "innlegg");
+        assert_eq!(slugifiser("..."), "innlegg");
+        assert_eq!(slugifiser("  ––  "), "innlegg");
     }
 }

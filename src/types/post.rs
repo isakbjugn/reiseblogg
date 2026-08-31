@@ -20,17 +20,20 @@ pub struct PostRad {
     pub forfatter: String,
 }
 
-/// Post til editoren – slug, tittel og Markdown. Kladd eller publisert;
-/// editoren trenger ingen publiseringsdato.
+/// Post til editoren – slug, tittel og Markdown. `published_at` forteller om
+/// posten er publisert (`Some`) eller kladd (`None`), så editoren vet hvilke
+/// knapper den skal vise (publiser/avpubliser).
 #[derive(Debug, FromRow)]
 pub struct PostRedigerRad {
     pub slug: String,
     pub title: String,
     pub content: String,
+    pub published_at: Option<DateTime<Utc>>,
 }
 
-/// Kladd til forsiden – slug, tittel og når den sist ble endret. Vises kun for
-/// eieren, så `created_by`-filteret ligger i spørringen.
+/// Kladd til forsiden – slug, tittel og når den sist ble endret. Vises for alle
+/// innloggede (autorisasjonen er flat), så spørringen har ingen `created_by`-
+/// filter.
 #[derive(Debug, FromRow)]
 pub struct KladdRad {
     pub slug: String,

@@ -22,7 +22,7 @@ const kladdNøkkel = (slug) => `reiseblogg:kladd:${slug || 'ny'}`;
 // pulldown-cmark på samme innstilling – ellers divergerer de to. Se CLAUDE.md.
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
 
-function Editor({ slug, handling, avbryt, startTittel, startInnhold }) {
+function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }) {
   // Kladd fra localStorage vinner over serverens startverdi: mistet nett eller
   // et uhell med refresh skal ikke spise det du har skrevet. Kritisk på reise.
   const kladd = useMemo(() => {
@@ -85,14 +85,19 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold }) {
       </div>
 
       <div class="knapperad">
-        <button type="submit">Lagre</button>
+        <button type="submit" name="handling" value="lagre">
+          ${publisert ? 'Lagre' : 'Lagre kladd'}
+        </button>
+        ${publisert
+          ? html`<button type="submit" name="handling" value="avpubliser" class="sekundaer">Avpubliser</button>`
+          : html`<button type="submit" name="handling" value="publiser" class="sekundaer">Publiser</button>`}
         ${harUlagretKladd
           && html`<button type="button" class="sekundaer" onClick=${forkast}>Forkast endringer</button>`}
         <a href=${avbryt} class="sekundaer">Avbryt</a>
       </div>
 
       <p class="hint">
-        Kladden lagres lokalt i nettleseren mens du skriver. Lagring på serveren kommer i steg 4.
+        Kladden lagres også lokalt i nettleseren mens du skriver, så den overlever dårlig nett.
       </p>
     </form>
   `;
@@ -100,6 +105,15 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold }) {
 
 const rot = document.getElementById('editor');
 const enkeltSkjema = document.getElementById('editor-enkel');
+
+// Etter en vellykket lagring redirecter serveren med ?lagret=1. Da er det vi
+// nettopp skrev «committet» – slett den lokale kladden *før* Editor leser den,
+// ellers overskygger den serverens ferske innhold. «ny»-nøkkelen ryddes også,
+// siden en ny post flyttes fra /ny til /rediger/{slug}.
+if (new URLSearchParams(location.search).has('lagret')) {
+  localStorage.removeItem(kladdNøkkel(rot.dataset.slug));
+  localStorage.removeItem(kladdNøkkel(''));
+}
 
 // Byttet skjer her, etter at alle importene er løst. Feiler en av dem, kastes
 // det før denne linja og det enkle skjemaet blir stående – som er hele poenget
@@ -114,6 +128,7 @@ render(
     startTittel=${rot.dataset.tittel}
     startInnhold=${rot.dataset.innhold}
     avbryt=${rot.dataset.avbryt}
+    publisert=${rot.dataset.publisert === 'ja'}
   />`,
   rot,
 );

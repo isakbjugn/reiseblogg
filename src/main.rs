@@ -1,7 +1,7 @@
 //! Reiseblogg – én Rust-app som rendrer HTML og serverer editoren.
 //!
-//! Postene kommer fra databasen (`db::post`). Skriving og publisering kommer
-//! i steg 4 (se PLAN.md).
+//! Postene kommer fra databasen (`db::post`). Innloggede forfattere skriver,
+//! publiserer og sletter via editoren og skjema-POST-ene i `poster`.
 //!
 //! Tre valg som ligger til grunn:
 //!
@@ -140,13 +140,8 @@ async fn main() {
     // revalidere mot `ETag`/`Last-Modified` (som `ServeDir` setter) før bruk. Uten
     // dette hang en gammel `stil.css` igjen i cachen etter auth-PR-en, så
     // logg-inn-skjemaet ble vist ustylet i produksjon.
-    let mutbar = SetResponseHeaderLayer::overriding(
-        header::CACHE_CONTROL,
-        HeaderValue::from_static("no-cache"),
-    );
-    let static_med_cache = Router::new()
-        .fallback_service(ServeDir::new("static"))
-        .layer(mutbar);
+    let mutbar = SetResponseHeaderLayer::overriding(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    let static_med_cache = Router::new().fallback_service(ServeDir::new("static")).layer(mutbar);
 
     // Komprimering på ALT: uten dette ville markdown-it gått som 147 kB rå i stedet
     // for 44 kB brotli. `ServeDir` gjør ikke dette av seg selv.
@@ -155,8 +150,9 @@ async fn main() {
         .route("/post/{slug}", get(poster::vis_post))
         .route("/arkiv", get(poster::arkiv))
         .route("/om-oss", get(poster::om_oss))
-        .route("/ny", get(poster::ny_post))
-        .route("/rediger/{slug}", get(poster::rediger_post))
+        .route("/ny", get(poster::ny_post).post(poster::opprett_post))
+        .route("/rediger/{slug}", get(poster::rediger_post).post(poster::oppdater_post))
+        .route("/slett/{slug}", get(poster::slett_bekreft).post(poster::slett_post))
         .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)
         .nest_service("/static", static_med_cache)

@@ -206,6 +206,9 @@ backend betyr dobbel overføring og timeout på dårlig nett.
 - RSS-feed
 - Kart med reiseruten
 - Bildegalleri som Preact-island
+- Forfatternavn i kladd-listen (hvem opprettet, hvem endret sist) – med delte kladder
+  er det nyttig å se eierskap. Ett `forfatter`-felt i `KladdRad` + join i
+  `db_get_kladder` + visning i `forside.html`.
 
 ---
 
