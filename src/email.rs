@@ -10,7 +10,7 @@
 //! konfigurasjonsflipp i prod.
 
 use lettre::message::{Mailbox, MultiPart, SinglePart, header::ContentType};
-use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use lettre::{Address, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use minijinja::{Environment, context};
 
 /// Sender engangskoden til e-postadressen, eller logger den hvis SMTP ikke er
@@ -65,15 +65,15 @@ async fn send_smtp(host: &str, epost: &str, html: &str, tekst: &str) -> Result<(
         .unwrap_or_default();
     let fra_navn = std::env::var("SMTP_FROM_NAME").unwrap_or_else(|_| "Reisebloggen".to_string());
 
+    // Bygg Mailbox-ene direkte framfor å formatere en `"Navn <epost>"`-streng og
+    // parse den tilbake – et visningsnavn med `@` (f.eks. e-posten brukt som navn)
+    // bryter RFC 2822-parseren og gir «Invalid input».
+    let fra = fra.parse::<Address>().map_err(|e| e.to_string())?;
+    let til = epost.parse::<Address>().map_err(|e| e.to_string())?;
+
     let email = Message::builder()
-        .from(
-            format!("{fra_navn} <{fra}>")
-                .parse::<Mailbox>()
-                .map_err(|e| e.to_string())?,
-        )
-        .to(format!("{epost} <{epost}>")
-            .parse::<Mailbox>()
-            .map_err(|e| e.to_string())?)
+        .from(Mailbox::new(Some(fra_navn), fra))
+        .to(Mailbox::new(None, til))
         .subject("Din innloggingskode")
         .multipart(
             MultiPart::alternative()
