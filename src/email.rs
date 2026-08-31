@@ -3,8 +3,8 @@
 //! Uten `RESEND_API_KEY` satt logges koden i stedet for å sendes.
 
 use minijinja::{Environment, context};
-use resend_rs::types::CreateEmailBaseOptions;
 use resend_rs::Resend;
+use resend_rs::types::CreateEmailBaseOptions;
 
 /// Sender engangskoden til e-postadressen, eller logger den hvis e-postutsending ikke er
 /// konfigurert (eller sending feiler). E-post er en sideeffekt – den kan ikke
@@ -25,11 +25,13 @@ pub async fn send_magic_kode(env: &Environment<'static>, epost: &str, kode: &str
         return;
     };
 
-    send_email(&resend_api_key, epost, &html, &tekst).await.unwrap_or_else(|e| {
-        tracing::error!("Kunne ikke sende e-post til {epost}: {e}");
-        // Fallback så brukeren ikke står fast om e-postutsending ikke fungerer
-        logg_kode(epost, kode);
-    });
+    send_email(&resend_api_key, epost, &html, &tekst)
+        .await
+        .unwrap_or_else(|e| {
+            tracing::error!("Kunne ikke sende e-post til {epost}: {e}");
+            // Fallback så brukeren ikke står fast om e-postutsending ikke fungerer
+            logg_kode(epost, kode);
+        });
 }
 
 /// Renderer HTML- og tekstversjonen av e-posten. HTML-en kommer fra
@@ -53,11 +55,15 @@ async fn send_email(resend_api_key: &str, user_email: &str, html: &str, text: &s
     let subject = "Din innloggingskode";
 
     let email = CreateEmailBaseOptions::new(from, to, subject)
-      .with_html(html)
-      .with_text(text);
+        .with_html(html)
+        .with_text(text);
 
     let create_email_response = resend.emails.send(email).await?;
-    tracing::info!("Engangskode sendt til {} med ID {} via Resend", user_email, create_email_response.id);
+    tracing::info!(
+        "Engangskode sendt til {} med ID {} via Resend",
+        user_email,
+        create_email_response.id
+    );
 
     Ok(())
 }

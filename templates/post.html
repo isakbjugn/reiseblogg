@@ -20,7 +20,13 @@
 
   <nav class="post-bunn">
     <a href="/">← Alle innlegg</a>
-    {# Vises bare for eier/admin fra steg 4. #}
-    <a href="/rediger/{{ slug }}">Rediger</a>
+    {# `actions` er tom for utloggede; innlogget får en flat liste med «endre» og
+       «slett». Slett er en lenke til bekreftelsessiden, ikke et skjema her. #}
+    {% if "endre" in actions %}
+      <a href="/rediger/{{ slug }}">Rediger</a>
+    {% endif %}
+    {% if "slett" in actions %}
+      <a href="/slett/{{ slug }}">Slett</a>
+    {% endif %}
   </nav>
 {% endblock %}

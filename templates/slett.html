@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block tittel %}Slett «{{ tittel }}» – Sør-Amerika{% endblock %}
+
+{% block innhold %}
+  <h1>Slett «{{ tittel }}»?</h1>
+  <p>Dette kan ikke angres – innlegget forsvinner for godt.</p>
+
+  {# Bekreftelsen er et vanlig POST-skjema: sletting fungerer uten JavaScript,
+     og `SameSite=Lax`-cookie-en stopper kryss-nettside-POST (CSRF). #}
+  <form method="post" action="/slett/{{ slug }}">
+    <div class="knapperad">
+      <button type="submit" class="farlig">Ja, slett</button>
+      <a href="/post/{{ slug }}" class="sekundaer">Avbryt</a>
+    </div>
+  </form>
+{% endblock %}

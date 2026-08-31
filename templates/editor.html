@@ -44,10 +44,7 @@
      To grunner til å gjøre det slik framfor <noscript>: det dekker også at
      JavaScript *feiler* (ikke bare er avslått), og det gir noe å se på med en
      gang mens modulene laster. Egne containere framfor å la Preact overskrive
-     skjemaet – Preact differ mot eksisterende DOM og det blir rotete.
-
-     MERK: POST-håndtering kommer i steg 4. Skjemaet peker riktig sted, men
-     serveren svarer ikke på det ennå. #}
+     skjemaet – Preact differ mot eksisterende DOM og det blir rotete. #}
   <form id="editor-enkel" class="editor" method="post" action="{{ handling }}">
     <label for="enkel-tittel">Tittel</label>
     <input id="enkel-tittel" name="tittel" value="{{ tittel }}" />
@@ -56,7 +53,14 @@
     <textarea id="enkel-innhold" name="innhold" rows="18">{{ innhold }}</textarea>
 
     <div class="knapperad">
-      <button type="submit">Lagre</button>
+      <button type="submit" name="handling" value="lagre">
+        {% if publisert %}Lagre{% else %}Lagre kladd{% endif %}
+      </button>
+      {% if publisert %}
+        <button type="submit" name="handling" value="avpubliser" class="sekundaer">Avpubliser</button>
+      {% else %}
+        <button type="submit" name="handling" value="publiser" class="sekundaer">Publiser</button>
+      {% endif %}
       <a href="{{ avbryt }}" class="sekundaer">Avbryt</a>
     </div>
   </form>
@@ -72,5 +76,8 @@
     data-innhold="{{ innhold }}"
     data-handling="{{ handling }}"
     data-avbryt="{{ avbryt }}"
+    {# Eksplisitt «ja»/«nei», ikke `{{ publisert }}`: minijinja rendrer booleans
+       som «True»/«False» (Jinja2-konvensjon), som ikke matcher `=== 'true'` i JS. #}
+    data-publisert="{% if publisert %}ja{% else %}nei{% endif %}"
   ></div>
 {% endblock %}
