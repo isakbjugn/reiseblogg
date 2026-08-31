@@ -12,6 +12,8 @@
 use lettre::message::{Mailbox, MultiPart, SinglePart, header::ContentType};
 use lettre::{Address, AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use minijinja::{Environment, context};
+use resend_rs::types::CreateEmailBaseOptions;
+use resend_rs::{Resend, Result};
 
 /// Sender engangskoden til e-postadressen, eller logger den hvis SMTP ikke er
 /// konfigurert (eller sending feiler). E-post er en sideeffekt – den kan ikke
@@ -27,11 +29,18 @@ pub async fn send_magic_kode(env: &Environment<'static>, epost: &str, kode: &str
     };
 
     // I utvikling er SMTP_HOST usatt: logg koden framfor å sende.
-    let Some(host) = std::env::var("SMTP_HOST").ok() else {
+    let Some(resend_api_key) = std::env::var("RESEND_API_KEY").ok() else {
         logg_kode(epost, kode);
         return;
     };
 
+    send_email(&resend_api_key, epost, &html, &tekst).await.unwrap_or_else(|e| {
+        tracing::error!("Kunne ikke sende e-post til {epost}: {e}");
+        // Fallback så brukeren ikke står fast om e-postutsending ikke fungerer
+        logg_kode(epost, kode);
+    });
+
+    /*
     match send_smtp(&host, epost, &html, &tekst).await {
         Ok(()) => tracing::info!("Engangskode sendt til {epost}"),
         Err(e) => {
@@ -40,6 +49,7 @@ pub async fn send_magic_kode(env: &Environment<'static>, epost: &str, kode: &str
             logg_kode(epost, kode);
         }
     }
+    */
 }
 
 /// Renderer HTML- og tekstversjonen av e-posten. HTML-en kommer fra
@@ -53,6 +63,23 @@ fn rend_epost(env: &Environment<'static>, kode: &str) -> Result<(String, String)
     let tekst = format!("Din innloggingskode til reisebloggen er: {kode}\n\nKoden utløper om 15 minutter.");
 
     Ok((html, tekst))
+}
+
+async fn send_email(resend_api_key: &str, user_email: &str, html: &str, text: &str) -> Result<()> {
+    let resend = Resend::new(resend_api_key);
+
+    let from = std::env::var("RESEND_FROM").unwrap_or_else(|_| "onboarding@resend.dev".into());
+    let to = [user_email];
+    let subject = "Din innloggingskode";
+
+    let email = CreateEmailBaseOptions::new(from, to, subject)
+      .with_html(html)
+      .with_text(text);
+
+    let _email = resend.emails.send(email).await?;
+    println!("{:?}", _email);
+
+    Ok(())
 }
 
 /// Sender en multipart-e-post (tekst + HTML) over SMTP. Oppsettet kommer fra
