@@ -29,11 +29,10 @@ pub async fn db_create_session(author_id: i32, token_hash: &str, db: &PgPool) ->
     .await
 }
 
-/// Forfatteren bak en gyldig sesjon. `role` følger med så autorisasjon (eier
-/// ELLER admin) kan avgjøres uten et nytt oppslag.
+/// Forfatteren bak en gyldig sesjon. Alle innloggede har lik tilgang – ingen
+/// roller – så kun `id` trengs.
 pub struct SessionAuthor {
     pub id: i32,
-    pub role: String,
 }
 
 /// Slår opp forfatteren bak et sesjonstoken, men kun hvis sesjonen ikke er
@@ -42,7 +41,7 @@ pub struct SessionAuthor {
 pub async fn db_find_session_author(token_hash: &str, db: &PgPool) -> Result<Option<SessionAuthor>, sqlx::Error> {
     sqlx::query_as!(
         SessionAuthor,
-        "SELECT a.id, a.role
+        "SELECT a.id
          FROM session s
          JOIN author a ON a.id = s.author_id
          WHERE s.token_hash = $1 AND s.expires_at > now()",

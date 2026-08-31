@@ -4,8 +4,7 @@
 use sqlx::PgPool;
 
 /// En forfatter slik auth-flyten trenger den – her holder `id` (e-posten brukes
-/// kun til oppslaget). Rollen er ikke med: den hører til sesjonsoppslaget i
-/// `db::session` og `extract::AuthenticatedAuthor`.
+/// kun til oppslaget).
 pub struct Author {
     pub id: i32,
 }

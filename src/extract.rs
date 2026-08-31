@@ -60,21 +60,11 @@ fn hent_cookie(header: &str, navn: &str) -> Option<String> {
 
 /// En autentisert forfatter, slått opp fra sesjon-cookie-en. Handlere som tar
 /// denne som argument er beskyttet: en manglende/ugyldig/utløpt sesjon gir `401`
-/// før handleren kjører. `role` er med så handleren kan avgjøre eier-ELLER-admin.
+/// før handleren kjører. Ingen roller – alle innloggede har lik tilgang – så kun
+/// `id` trengs.
 #[derive(Debug)]
 pub struct AuthenticatedAuthor {
     pub id: i32,
-    /// Rolle for autorisasjon (eier ELLER admin) – brukes fra steg 4.
-    #[allow(dead_code)]
-    pub role: String,
-}
-
-impl AuthenticatedAuthor {
-    /// Brukes fra steg 4 (eier ELLER admin).
-    #[allow(dead_code)]
-    pub fn is_admin(&self) -> bool {
-        self.role == "admin"
-    }
 }
 
 impl<S> FromRequestParts<S> for AuthenticatedAuthor
@@ -94,10 +84,7 @@ where
             })?
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        Ok(AuthenticatedAuthor {
-            id: author.id,
-            role: author.role,
-        })
+        Ok(AuthenticatedAuthor { id: author.id })
     }
 }
 

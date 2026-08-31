@@ -1,12 +1,6 @@
--- Auth for steg 3: `role`-kolonnen på author, pluss magic_tokens og session.
+-- Auth for steg 3: engangskoder (magic_tokens) og sesjoner (session).
 -- Tabellene er hentet fra fagord-rust-api, men tabellen heter `author` her,
 -- ikke `contributor`, så fremmednøklene peker på `author(id)`.
-
--- Forfattere får en rolle: 'author' eller 'admin'. Rolle er grunnlaget for
--- autorisasjon (eier ELLER admin) i steg 4. Eksisterende brukere opprettes som
--- 'author' og kan settes manuelt til 'admin' med psql.
-ALTER TABLE author ADD COLUMN role TEXT NOT NULL DEFAULT 'author'
-    CHECK (role IN ('author', 'admin'));
 
 -- Engangskoder for kode-innlogging. En kode beviser at brukeren har tilgang til
 -- e-postkontoen sin; ved verifisering byttes den inn i en sesjon. Databasen lagrer
