@@ -135,6 +135,19 @@ async fn main() {
         .fallback_service(ServeDir::new("static/vendor"))
         .layer(uforanderlig);
 
+    // `stil.css` og `editor.js` er mutable – de endres mellom deployer, så de kan ikke
+    // caches hardt som vendor-filene. `no-cache` lar nettleseren lagre dem, men
+    // revalidere mot `ETag`/`Last-Modified` (som `ServeDir` setter) før bruk. Uten
+    // dette hang en gammel `stil.css` igjen i cachen etter auth-PR-en, så
+    // logg-inn-skjemaet ble vist ustylet i produksjon.
+    let mutbar = SetResponseHeaderLayer::overriding(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("no-cache"),
+    );
+    let static_med_cache = Router::new()
+        .fallback_service(ServeDir::new("static"))
+        .layer(mutbar);
+
     // Komprimering på ALT: uten dette ville markdown-it gått som 147 kB rå i stedet
     // for 44 kB brotli. `ServeDir` gjør ikke dette av seg selv.
     let app = Router::new()
@@ -146,7 +159,7 @@ async fn main() {
         .route("/rediger/{slug}", get(poster::rediger_post))
         .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)
-        .nest_service("/static", ServeDir::new("static"))
+        .nest_service("/static", static_med_cache)
         .fallback(ikke_funnet)
         .layer(CompressionLayer::new().br(true).gzip(true))
         .with_state(state);
