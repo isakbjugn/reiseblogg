@@ -5,7 +5,8 @@ edition = "2024"
 rust-version = "1.96"
 
 [dependencies]
-axum = { version = "0.8.9", features = ["form"] }
+aws-sdk-s3 = { version = "1.144.0", default-features = false, features = ["rt-tokio"] }
+axum = { version = "0.8.9", features = ["form", "json"] }
 chrono = "0.4"
 dotenvy = "0.15.7"
 governor = "0.6"

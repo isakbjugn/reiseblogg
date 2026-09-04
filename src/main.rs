@@ -15,6 +15,7 @@ mod db;
 mod email;
 mod extract;
 mod markdown;
+mod media;
 mod poster;
 mod rate_limit;
 mod tokens;
@@ -40,6 +41,7 @@ use crate::extract::AuthenticatedAuthor;
 pub struct AppState {
     db: sqlx::PgPool,
     env: Environment<'static>,
+    s3: aws_sdk_s3::Client,
 }
 
 /// Lar extractors hente databasen ut av staten uten å kjenne hele AppState.
@@ -108,7 +110,7 @@ async fn main() {
         .await
         .expect("Klarte ikke å gjøre database-migrering");
 
-    let state = Arc::new(AppState { db, env: build_env() });
+    let state = Arc::new(AppState { db, env: build_env(), s3: media::s3_client() });
 
     // Rate-limiter for offentlig auth-trafikk. I lokal utvikling (ingen edge-header)
     // er den en no-op; se rate_limit.rs for begrunnelsen.
@@ -153,6 +155,7 @@ async fn main() {
         .route("/ny", get(poster::ny_post).post(poster::opprett_post))
         .route("/rediger/{slug}", get(poster::rediger_post).post(poster::oppdater_post))
         .route("/slett/{slug}", get(poster::slett_bekreft).post(poster::slett_post))
+        .route("/media", post(media::create_media))
         .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)
         .nest_service("/static", static_med_cache)
