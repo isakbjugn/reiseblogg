@@ -11,5 +11,29 @@ services:
     volumes:
       - db_persistent_storage:/var/lib/postgresql
 
+  minio:
+    image: minio/minio
+    container_name: minio
+    # Fast port til web-konsollen; uten --console-address havner den på et
+    # tilfeldig portnummer.
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Global CORS. Bucket-nivå CORS finnes ikke i community-utgaven av MinIO
+      # (returnerer «NotImplemented»), så vi bruker denne server-omfattende
+      # variabelen i stedet. Se minnet «minio-lokal-cors».
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
 volumes:
   db_persistent_storage:
+  # Opprettet opprinnelig av `docker run -v minio_data:/data`. `external: true`
+  # gjenbruker det eksisterende volume-et (med opplastede objekter) framfor å
+  # lage et nytt, prefikset ett. Blir heller ikke slettet av `down -v`.
+  minio_data:
+    external: true
