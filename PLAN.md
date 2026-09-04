@@ -176,7 +176,11 @@ backend betyr dobbel overføring og timeout på dårlig nett.
   telefonbilder inneholder koordinater du sannsynligvis ikke vil publisere.
 - Videoer kan ikke skaleres i nettleseren – sett en størrelsesgrense og last opp rått
 - Editoren: dra-og-slipp, sett inn `![](url)` i Markdown ved fullført opplasting
-- `loading="lazy"` + `width`/`height` på bilder, så lesesidene ikke hopper
+- `loading="lazy"` på bilder – **gjort**: injiseres ved render i `markdown.rs`, så
+  lesesidene ikke henter bilder leseren aldri ser.
+- `width`/`height` for å reservere plass (mot layout-skift) er **bevisst utsatt**: krever
+  migrasjon, dimensjonslagring i `media`-tabellen og render-oppslag – gevinsten er kun
+  kosmetisk. Kan komme senere; bilder lastet opp før det får ingen dimensjon uten backfill.
 
 **Ferdig når:** du kan dra et telefonbilde inn i editoren og se det i publisert post.
 

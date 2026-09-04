@@ -86,7 +86,16 @@ pub fn til_html(markdown: &str) -> String {
     // Litt større enn kilden: HTML-taggene kommer i tillegg til teksten.
     let mut html_ut = String::with_capacity(markdown.len() * 3 / 2);
     html::push_html(&mut html_ut, parser);
-    html_ut
+
+    // `loading="lazy"` på alle bilder, så nettleseren utsetter bilder utenfor
+    // skjermen til leseren ruller nær dem – viktig på en bildetung blogg lest på
+    // dårlig nett. pulldown-cmark har ingen støtte for dette: `Tag::Image` bærer
+    // bare `link_type`, `dest_url`, `title` og `id`, og det eneste attributt-
+    // tillegget (`ENABLE_HEADING_ATTRIBUTES`) gjelder overskrifter, ikke bilder.
+    // Strengerstatningen er presis og trygg: rendereren skriver alltid `<img src="`
+    // som åpning på bilde-tagger, rå HTML er filtrert bort ovenfor, og `<`/`>` i
+    // tekst er escapet – så sekvensen kan bare komme fra en ekte bilde-tag.
+    html_ut.replace("<img src=\"", "<img loading=\"lazy\" src=\"")
 }
 
 /// Første avsnitt som ren tekst, til `<meta name="description">` og Open Graph.
@@ -138,7 +147,13 @@ mod tests {
     fn rendrer_lenker_og_bilder() {
         let html = til_html("[lenke](https://example.com) og ![bilde](/b.jpg)");
         assert!(html.contains(r#"<a href="https://example.com">lenke</a>"#));
-        assert!(html.contains(r#"<img src="/b.jpg" alt="bilde""#));
+        assert!(html.contains(r#"<img loading="lazy" src="/b.jpg" alt="bilde""#));
+    }
+
+    #[test]
+    fn bilder_faar_lazy_loading() {
+        let html = til_html("![bilde](/b.jpg)");
+        assert!(html.contains(r#"<img loading="lazy" src="/b.jpg" alt="bilde""#));
     }
 
     #[test]
