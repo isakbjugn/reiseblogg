@@ -7,3 +7,4 @@
 pub mod magic_token;
 pub mod post;
 pub mod session;
+pub mod media;

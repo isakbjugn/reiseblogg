@@ -9,7 +9,7 @@
 // i stedet for `onChange`.
 
 import { render } from 'preact';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { html } from 'htm/preact';
 import MarkdownIt from 'markdown-it';
 
@@ -21,6 +21,56 @@ const kladdNøkkel = (slug) => `reiseblogg:kladd:${slug || 'ny'}`;
 // med dangerouslySetInnerHTML, og serveren rendrer det publiserte med
 // pulldown-cmark på samme innstilling – ellers divergerer de to. Se CLAUDE.md.
 const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+
+// Bildebehandling: maks dimensjon og JPEG-kvalitet. 2000 px er rikelig for en
+// nettside og kutter telefonbilder (5 MB+) ned til noen få hundre kB. EXIF/GPS
+// strippes som bieffekt – canvas holder kun pikseldata, ikke metadata.
+const MAKS_PIKSEL = 2000;
+const JPEG_KVALITET = 0.82;
+
+// Formater som kan bære gjennomsiktighet beholdes – JPEG støtter ikke alpha, så
+// et PNG-bilde kodet om til JPEG ville fått svart/hvit bakgrunn. Foto (JPEG/HEIC)
+// kodes om til JPEG. GIF normaliseres til PNG (full alpha framfor 1-bits).
+function utFormat(fileType) {
+  if (fileType === 'image/png' || fileType === 'image/gif') return 'image/png';
+  if (fileType === 'image/webp') return 'image/webp';
+  return 'image/jpeg';
+}
+
+// Skalerer et bilde ned til maks 2000 px og koder det om – til JPEG for foto,
+// men til et gjennomsiktighetsstøttende format for PNG/WebP. `from-image` får
+// nettleseren til å respektere EXIF-orienteringen, så portrettbilder ikke havner
+// rotert. HEIC er Safari-spesifikt å dekode: på andre nettlesere feiler
+// createImageBitmap, og vi ber heller brukeren konvertere.
+async function skalerBilde(file) {
+  let bitmap;
+  try {
+    bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+  } catch {
+    throw new Error('Kunne ikke lese bildet – konverter HEIC til JPEG først.');
+  }
+
+  const skala = Math.min(1, MAKS_PIKSEL / Math.max(bitmap.width, bitmap.height));
+  const bredde = Math.round(bitmap.width * skala);
+  const høyde = Math.round(bitmap.height * skala);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = bredde;
+  canvas.height = høyde;
+  canvas.getContext('2d').drawImage(bitmap, 0, 0, bredde, høyde);
+  bitmap.close();
+
+  const mime_type = utFormat(file.type);
+
+  const blob = await new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (b) => (b ? resolve(b) : reject(new Error('Kunne ikke kode om bildet'))),
+      mime_type,
+      JPEG_KVALITET, // ignorert for PNG (alltid lossless)
+    );
+  });
+  return { blob, mime_type };
+}
 
 function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }) {
   // Kladd fra localStorage vinner over serverens startverdi: mistet nett eller
@@ -35,6 +85,11 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }
 
   const [tittel, setTittel] = useState(kladd?.tittel ?? startTittel);
   const [innhold, setInnhold] = useState(kladd?.innhold ?? startInnhold);
+  const [opplasting, setOpplasting] = useState(false);
+  const [opplastingsFeil, setOpplastingsFeil] = useState('');
+  const [drarOver, setDrarOver] = useState(false);
+  const tekstfelt = useRef(null);
+  const filInput = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(kladdNøkkel(slug), JSON.stringify({ tittel, innhold }));
@@ -52,8 +107,86 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }
     setInnhold(startInnhold);
   }
 
+  // Setter inn tekst ved markøren, eller på slutten hvis feltet ikke har fokus.
+  // Leser textarea-ens `value` direkte i stedet for `innhold`-staten, så tegn
+  // brukeren rakk å skrive mens bildet ble prosessert ikke overskrives.
+  function settInnMarkdown(tekst) {
+    const el = tekstfelt.current;
+    if (!el) {
+      setInnhold((tidligere) => tidligere + tekst);
+      return;
+    }
+    const start = el.selectionStart ?? el.value.length;
+    const slutt = el.selectionEnd ?? el.value.length;
+    setInnhold(el.value.slice(0, start) + tekst + el.value.slice(slutt));
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + tekst.length;
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  async function lastOpp(fil) {
+    if (opplasting) return;
+    if (!fil.type.startsWith('image/')) {
+      setOpplastingsFeil('Kun bilder støttes foreløpig – video kommer senere.');
+      return;
+    }
+
+    setOpplasting(true);
+    setOpplastingsFeil('');
+    try {
+      const { blob, mime_type } = await skalerBilde(fil);
+
+      const svar = await fetch('/media', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mime_type, size: blob.size }),
+      });
+      if (svar.status === 401) {
+        window.location.href = '/logg-inn';
+        return;
+      }
+      if (!svar.ok) throw new Error('Kunne ikke opprette opplastingen');
+
+      const { presigned_url, public_url } = await svar.json();
+
+      const put = await fetch(presigned_url, {
+        method: 'PUT',
+        headers: { 'Content-Type': mime_type },
+        body: blob,
+      });
+      if (!put.ok) throw new Error('Opplastingen til bøtta feilet');
+
+      settInnMarkdown(`\n\n![](${public_url})`);
+    } catch (feil) {
+      setOpplastingsFeil(feil instanceof Error ? feil.message : 'Opplasting feilet');
+    } finally {
+      setOpplasting(false);
+    }
+  }
+
+  function vedSlipp(e) {
+    e.preventDefault();
+    setDrarOver(false);
+    const fil = e.dataTransfer?.files?.[0];
+    if (fil) lastOpp(fil);
+  }
+
   return html`
-    <form class="editor" method="post" action=${handling}>
+    <form
+      class=${drarOver ? 'editor editor-drar' : 'editor'}
+      method="post"
+      action=${handling}
+      onDragOver=${(e) => {
+        if (e.dataTransfer?.types?.includes('Files')) {
+          e.preventDefault();
+          setDrarOver(true);
+        }
+      }}
+      onDragLeave=${() => setDrarOver(false)}
+      onDrop=${vedSlipp}
+    >
       <label for="tittel">Tittel</label>
       <input
         id="tittel"
@@ -72,6 +205,7 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }
             rows="18"
             value=${innhold}
             onInput=${(e) => setInnhold(e.target.value)}
+            ref=${tekstfelt}
           ></textarea>
         </div>
 
@@ -84,6 +218,18 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }
         </div>
       </div>
 
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        hidden=${true}
+        ref=${filInput}
+        onChange=${(e) => {
+          const fil = e.target.files?.[0];
+          if (fil) lastOpp(fil);
+          e.target.value = '';
+        }}
+      />
+
       <div class="knapperad">
         <button type="submit" name="handling" value="lagre">
           ${publisert ? 'Lagre' : 'Lagre kladd'}
@@ -91,13 +237,19 @@ function Editor({ slug, handling, avbryt, startTittel, startInnhold, publisert }
         ${publisert
           ? html`<button type="submit" name="handling" value="avpubliser" class="sekundaer">Avpubliser</button>`
           : html`<button type="submit" name="handling" value="publiser" class="sekundaer">Publiser</button>`}
+        <button type="button" class="sekundaer" onClick=${() => filInput.current?.click()} disabled=${opplasting}>
+          ${opplasting ? 'Laster opp …' : 'Last opp bilde'}
+        </button>
         ${harUlagretKladd
           && html`<button type="button" class="sekundaer" onClick=${forkast}>Forkast endringer</button>`}
         <a href=${avbryt} class="sekundaer">Avbryt</a>
       </div>
 
+      ${opplastingsFeil && html`<p class="feil">${opplastingsFeil}</p>`}
+
       <p class="hint">
         Kladden lagres også lokalt i nettleseren mens du skriver, så den overlever dårlig nett.
+        Dra-og-slipp bilder i feltet, eller bruk «Last opp bilde».
       </p>
     </form>
   `;
