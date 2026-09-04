@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT slug, title, updated_at\n        FROM post\n        WHERE created_by = $1 AND published_at IS NULL\n        ORDER BY updated_at DESC\n        ",
+  "query": "\n        SELECT slug, title, content, published_at\n        FROM post\n        WHERE slug = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -27,26 +27,38 @@
       },
       {
         "ordinal": 2,
-        "name": "updated_at",
+        "name": "content",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "post",
+            "name": "content"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "published_at",
         "type_info": "Timestamptz",
         "origin": {
           "Table": {
             "table": "post",
-            "name": "updated_at"
+            "name": "published_at"
           }
         }
       }
     ],
     "parameters": {
       "Left": [
-        "Int4"
+        "Text"
       ]
     },
     "nullable": [
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "2578441e4076f442116ad5b982961c4d605c638c08c400aa89c159808952cea1"
+  "hash": "d33fe1c66f72b017888124246bb5837d369385feab5407edaf2b67a287a26769"
 }
