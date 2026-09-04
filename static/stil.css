@@ -537,6 +537,18 @@ button.farlig:hover {
   font-size: 0.85rem;
 }
 
+/* Opplasting av bilder */
+
+.editor-drar {
+  outline: 2px dashed var(--aksent);
+  outline-offset: 0.5rem;
+}
+
+.editor button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 /* Om oss */
 
 details {
