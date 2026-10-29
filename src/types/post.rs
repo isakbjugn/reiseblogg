@@ -51,6 +51,10 @@ pub struct PostVisning {
     pub dato_lesbar: String,
     pub forfatter: String,
     pub sammendrag: String,
+    /// URL til miniatyrbildet på forsiden. `None` når posten ikke har noe bilde.
+    /// Beregnes i `poster.rs::fra_rad` via `markdown::første_bilde`; senere kan et
+    /// eksplisitt cover-bilde ta prioritet over fallbacken.
+    pub forsidebilde: Option<String>,
     /// Ferdig rendret HTML fra `markdown::til_html` – templaten bruker `| safe`.
     pub innhold_html: String,
 }

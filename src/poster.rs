@@ -40,6 +40,7 @@ impl PostVisning {
             dato,
             forfatter: rad.forfatter,
             sammendrag: markdown::sammendrag(&rad.content, 180),
+            forsidebilde: markdown::første_bilde(&rad.content),
             innhold_html: markdown::til_html(&rad.content),
         }
     }
@@ -108,6 +109,7 @@ pub async fn forside(
                 dato_lesbar => p.dato_lesbar,
                 forfatter => p.forfatter,
                 sammendrag => p.sammendrag,
+                forsidebilde => p.forsidebilde,
             }
         })
         .collect();

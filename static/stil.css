@@ -229,10 +229,36 @@ main.bred {
 }
 
 .postkort {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
   background: var(--kort);
   border-radius: var(--radius);
   box-shadow: var(--skygge);
   padding: 1.5rem clamp(1.25rem, 4vw, 2rem);
+}
+
+/* Tekstspalten til venstre, miniatyrbildet til høyre. `min-width: 0` lar teksten
+   bryte framfor å presse bildet ut av kortet på smale skjermer. */
+.postkort-tekst {
+  flex: 1;
+  min-width: 0;
+}
+
+.postkort-bilde {
+  flex-shrink: 0;
+  width: clamp(6rem, 25vw, 12rem);
+}
+
+/* object-fit: cover beskjærer bildet til sideforholdet – «utsnittet» er rent
+   visuelt, uten bildebehandling på serveren. Nettleseren laster fortsatt hele
+   bildet; et ekte miniatyr-derivat kan komme senere hvis forsiden blir tung. */
+.postkort-bilde img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--radius);
 }
 
 .postkort h2 {
