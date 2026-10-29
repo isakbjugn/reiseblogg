@@ -231,23 +231,26 @@ main.bred {
 .postkort {
   display: flex;
   gap: 1.25rem;
-  align-items: flex-start;
   background: var(--kort);
   border-radius: var(--radius);
   box-shadow: var(--skygge);
-  padding: 1.5rem clamp(1.25rem, 4vw, 2rem);
+  /* Paddingen ligger på tekstspalten, ikke kortet, så bildet kan ligge inntil
+     høyrekanten uten margin. */
 }
 
-/* Tekstspalten til venstre, miniatyrbildet til høyre. `min-width: 0` lar teksten
-   bryte framfor å presse bildet ut av kortet på smale skjermer. */
+/* Tekstspalten til venstre. `min-width: 0` lar teksten bryte framfor å presse
+   bildet ut av kortet på smale skjermer. */
 .postkort-tekst {
   flex: 1;
   min-width: 0;
+  padding: 1.5rem clamp(1.25rem, 4vw, 2rem);
 }
 
+/* Bildet ligger inntil kortets høyrekant, vertikalt sentrert – ikke fluktet med
+   et hjørne. */
 .postkort-bilde {
-  flex-shrink: 0;
-  width: clamp(6rem, 25vw, 12rem);
+  flex: 0 0 clamp(7rem, 26vw, 13rem);
+  align-self: center;
 }
 
 /* object-fit: cover beskjærer bildet til sideforholdet – «utsnittet» er rent
@@ -256,9 +259,9 @@ main.bred {
 .postkort-bilde img {
   display: block;
   width: 100%;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
-  border-radius: var(--radius);
+  border-radius: calc(2*var(--radius)) 0 0 calc(2*var(--radius));
 }
 
 .postkort h2 {
