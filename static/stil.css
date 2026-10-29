@@ -249,7 +249,8 @@ main.bred {
 /* Bildet ligger inntil kortets høyrekant, vertikalt sentrert – ikke fluktet med
    et hjørne. */
 .postkort-bilde {
-  flex: 0 0 clamp(7rem, 26vw, 13rem);
+  flex: 0 0 13rem;    /* ønsket bredde */
+  max-width: 33.333%; /* men aldri mer enn en tredel av kortets bredde */
   align-self: center;
 }
 
@@ -262,6 +263,29 @@ main.bred {
   aspect-ratio: 4 / 3;
   object-fit: cover;
   border-radius: calc(2*var(--radius)) 0 0 calc(2*var(--radius));
+}
+
+/* På smal skjerm klemmer sidebildet teksten inn i en for smal spalte. Her stables
+   kortet i stedet: bildet blir en fullbredde-banner øverst, fluktet med de to
+   øvre hjørnene, og teksten legges under. */
+@media (max-width: 480px) {
+  .postkort {
+    flex-direction: column;
+    gap: 0; /* tekstspalten har egen padding, så vi trenger ikke ekstra mellomrom */
+  }
+
+  .postkort-bilde {
+    order: -1;           /* banner før teksten */
+    flex: none;          /* 0 0 auto – høyden følger bildet */
+    align-self: stretch; /* full bredde (overstyrer align-self: center over) */
+    max-width: none;     /* overstyrer tredelsbegrensningen – banneren fyller bredden */
+  }
+
+  .postkort-bilde img {
+    aspect-ratio: 16 / 9;
+    /* Runder bare de to øvre hjørnene, som sammenfaller med kortets radius. */
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
 }
 
 .postkort h2 {
