@@ -18,6 +18,9 @@
     <meta property="og:title" content="{{ self.tittel() }}" />
     <meta property="og:description" content="{{ side_beskrivelse }}" />
     <meta property="og:locale" content="nb_NO" />
+    {# og:image er valgfri og settes kun av sider med et bilde (f.eks. en post med
+       fallback fra første bilde). Tom ellers – ingen dummy-metatag. #}
+    {% block og_image %}{% endblock %}
 
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/static/stil.css" />

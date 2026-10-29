@@ -131,6 +131,20 @@ pub fn sammendrag(markdown: &str, maks_tegn: usize) -> String {
     format!("{}…", kort.trim_end())
 }
 
+/// Første bilde i Markdown-en, som URL-streng. Brukes til miniatyrbildet på
+/// forsiden – `None` når posten ikke inneholder noe bilde. Alt-tekst og alt
+/// annet rundt bildet faller bort; vi trenger bare URL-en.
+pub fn første_bilde(markdown: &str) -> Option<String> {
+    for event in Parser::new_ext(markdown, options()) {
+        if let Event::Start(Tag::Image { dest_url, .. }) = event {
+            if !dest_url.is_empty() {
+                return Some(dest_url.to_string());
+            }
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +291,25 @@ mod tests {
         // panikker slicing. Grensen settes midt i «høydesyke».
         let s = sammendrag("Cusco og høydesyke er slitsomt å oppleve", 12);
         assert!(s.ends_with('…'));
+    }
+
+    // --- Første bilde ---
+
+    #[test]
+    fn forste_bilde_tar_det_forste_bildet() {
+        let s = første_bilde("Tekst.\n\n![alt](/b1.jpg)\n\n![to](/b2.jpg)");
+        assert_eq!(s.as_deref(), Some("/b1.jpg"));
+    }
+
+    #[test]
+    fn forste_bilde_hopper_over_lenker_og_tekst() {
+        let s = første_bilde("[lenke](https://eksempel.no) og ![bilde](/b.jpg)");
+        assert_eq!(s.as_deref(), Some("/b.jpg"));
+    }
+
+    #[test]
+    fn forste_bilde_er_none_uten_bilde() {
+        assert_eq!(første_bilde("Bare tekst."), None);
+        assert_eq!(første_bilde(""), None);
     }
 }

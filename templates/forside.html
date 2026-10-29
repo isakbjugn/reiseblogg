@@ -27,13 +27,24 @@
   <div class="postliste">
     {% for post in poster %}
       <article class="postkort">
-        <h2><a href="/post/{{ post.slug }}">{{ post.tittel }}</a></h2>
-        <p class="meta">
-          <time datetime="{{ post.dato }}">{{ post.dato_lesbar }}</time>
-          · {{ post.forfatter }}
-        </p>
-        <p class="sammendrag">{{ post.sammendrag }}</p>
-        <a class="les-mer" href="/post/{{ post.slug }}">Les videre</a>
+        <div class="postkort-tekst">
+          <h2><a href="/post/{{ post.slug }}">{{ post.tittel }}</a></h2>
+          <p class="meta">
+            <time datetime="{{ post.dato }}">{{ post.dato_lesbar }}</time>
+            · {{ post.forfatter }}
+          </p>
+          <p class="sammendrag">{{ post.sammendrag }}</p>
+          <a class="les-mer" href="/post/{{ post.slug }}">Les videre</a>
+        </div>
+
+        {# Miniatyrbildet er dekorativt: tittelen rett ved siden av bærer lenken og
+           beskrivelsen. Derfor alt="" og aria-hidden på en lenke som ellers ville
+           vært en duplikat av tittel-lenken for skjermlesere og tab-navigasjon. #}
+        {% if post.forsidebilde %}
+          <a class="postkort-bilde" href="/post/{{ post.slug }}" aria-hidden="true" tabindex="-1">
+            <img src="{{ post.forsidebilde }}" alt="" loading="lazy" />
+          </a>
+        {% endif %}
       </article>
     {% else %}
       <p>Ingen innlegg ennå.</p>
