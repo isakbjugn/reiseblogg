@@ -178,6 +178,8 @@ pub async fn vis_post(
             innhold => post.innhold_html,
             // Til <meta description> og Open Graph.
             sammendrag => post.sammendrag,
+            // Til <meta property="og:image"> – fallbacken fra første bilde i posten.
+            forsidebilde => post.forsidebilde,
             paalogget => author.is_some(),
             actions => actions,
         },

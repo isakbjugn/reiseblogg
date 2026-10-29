@@ -3,6 +3,13 @@
 {% block tittel %}{{ tittel }} – Sør-Amerika{% endblock %}
 {% block beskrivelse %}{{ sammendrag }}{% endblock %}
 {% block og_type %}article{% endblock %}
+{% block og_image %}
+  {# Samme fallback som forsiden: første bilde i posten. Gir delte lenker en
+     forhåndsvisning i chat og sosiale medier. #}
+  {% if forsidebilde %}
+    <meta property="og:image" content="{{ forsidebilde }}" />
+  {% endif %}
+{% endblock %}
 
 {% block innhold %}
   <article class="post">
