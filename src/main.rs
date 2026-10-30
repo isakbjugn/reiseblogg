@@ -156,6 +156,7 @@ async fn main() {
         .route("/kladd/{slug}", get(poster::vis_kladd))
         .route("/rediger/{slug}", get(poster::rediger_post).post(poster::oppdater_post))
         .route("/slett/{slug}", get(poster::slett_bekreft).post(poster::slett_post))
+        .route("/publiser/{slug}", post(poster::publiser_post))
         .route("/media", post(media::create_media))
         .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)

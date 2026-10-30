@@ -498,6 +498,30 @@ pub async fn oppdater_post(
     })
 }
 
+/// POST /publiser/{slug} – publiserer en kladd uten å gå via editoren.
+///
+/// Motsatt av slett er publisering reversibelt (en post kan avpubliseres igjen),
+/// så det trengs ingen bekreftelsesside – en direkte POST er nok. Slett har
+/// `slett_bekreft` fordi *det* er irreversibelt.
+pub async fn publiser_post(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    let Some(author) = author else {
+        return Ok(redirect("/logg-inn"));
+    };
+
+    db_sett_publisert(&slug, Some(Utc::now()), author.id, &state.db)
+        .await
+        .map_err(|e| match e {
+            Error::RowNotFound => StatusCode::NOT_FOUND,
+            e => db_feil(e),
+        })?;
+
+    Ok(redirect(&format!("/post/{slug}")))
+}
+
 /// GET /slett/{slug} – bekreftelsesside før sletting. Ren HTML, ingen JavaScript:
 /// sletting er irreversibelt, så et ekstra klikk er billig forsikring.
 pub async fn slett_bekreft(
