@@ -33,3 +33,27 @@ pub async fn db_liste_media(db: &PgPool) -> Result<Vec<MediaRad>, sqlx::Error> {
     .fetch_all(db)
     .await
 }
+
+/// Én media-rad, til sletting (både bekreftelsessiden og selve slettingen).
+/// `RowNotFound` hvis id-en ikke finnes, som handleren mapper til 404.
+pub async fn db_hent_media(id: i32, db: &PgPool) -> Result<MediaRad, sqlx::Error> {
+    sqlx::query_as!(
+        MediaRad,
+        r#"
+        SELECT id, key, mime_type
+        FROM media
+        WHERE id = $1
+        "#,
+        id,
+    )
+    .fetch_one(db)
+    .await
+}
+
+/// Sletter en media-rad. `RETURNING id` gir `RowNotFound` hvis raden allerede er
+/// borte, så handleren kan svare 404 framfor å late som noe ble slettet.
+pub async fn db_slett_media(id: i32, db: &PgPool) -> Result<i32, sqlx::Error> {
+    sqlx::query_scalar!("DELETE FROM media WHERE id = $1 RETURNING id", id)
+        .fetch_one(db)
+        .await
+}
