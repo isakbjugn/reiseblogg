@@ -41,6 +41,17 @@ pub struct KladdRad {
     pub updated_at: DateTime<Utc>,
 }
 
+/// Post som refererer et media, til «Brukt i»-listen i galleriet. `published_at`
+/// forteller om lenken skal peke til `/post/{slug}` (publisert) eller
+/// `/kladd/{slug}` (kladd) – kladder teller med som referanser, fordi en kladd
+/// som bruker bildet brekker om bildet slettes.
+#[derive(Debug, FromRow)]
+pub struct PostReferanse {
+    pub slug: String,
+    pub title: String,
+    pub published_at: Option<DateTime<Utc>>,
+}
+
 /// Visningstypen templatene ser. Bygges fra `PostRad` i `poster.rs` – fagord
 /// gjør konverteringen i handler-filen, ikke i types/.
 pub struct PostVisning {

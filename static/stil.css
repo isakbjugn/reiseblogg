@@ -654,6 +654,59 @@ button.farlig:hover {
   box-shadow: var(--skygge);
 }
 
+/* Bilde og «Brukt i»-liste side om side på brede skjermer, stablet under
+   hverandre på smale. Sidebaren er smal – en liste over post-titler trenger
+   ikke mer. */
+.galleri-layout {
+  display: grid;
+  gap: 1.5rem;
+}
+
+@media (min-width: 48rem) {
+  .galleri-layout {
+    grid-template-columns: minmax(0, 1fr) 16rem;
+    align-items: start;
+  }
+}
+
+/* «Brukt i» overstyrer sentreringen på .galleri – en liste leses fra venstre. */
+.galleri-referanser {
+  text-align: left;
+}
+
+.galleri-referanser h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.galleri-referanser ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.galleri-referanser li {
+  padding: 0.4rem 0;
+}
+
+.galleri-referanser li + li {
+  border-top: 1px solid var(--kantlinje);
+}
+
+/* «kladd»-merke: liten pille som skiller kladder fra publiserte innlegg uten å
+   dominere listen. */
+.referanse-kladd {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--dempet);
+  border: 1px solid var(--kantlinje);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+
 /* Om oss */
 
 details {

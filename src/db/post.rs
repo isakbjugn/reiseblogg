@@ -9,7 +9,7 @@
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 
-use crate::types::post::{KladdRad, PostRad, PostRedigerRad};
+use crate::types::post::{KladdRad, PostRad, PostRedigerRad, PostReferanse};
 
 /// Publiserte poster, nyeste først. Forsiden og arkivet deler denne.
 pub async fn db_get_poster(db: &PgPool) -> Result<Vec<PostRad>, sqlx::Error> {
@@ -178,4 +178,27 @@ pub async fn db_slug_finnes(slug: &str, db: &PgPool) -> Result<bool, sqlx::Error
         .fetch_one(db)
         .await?;
     Ok(finnes.unwrap_or(false))
+}
+
+/// Poster som refererer et media-key i innholdet.
+///
+/// Søker på selve key-en (siste del av URL-en), ikke den fulle URL-en: key-en er
+/// 64 hex-tegn tilfeldighet (`generate_session_token`) og dermed aldri falsk
+/// positiv, og treffet er uavhengig av hvilken offentlig URL-base som var i bruk
+/// da posten ble skrevet. `strpos` framfor `LIKE '%…%'` fordi det slipper å bry
+/// seg om LIKE-spesialtegn. Kladder tas med bevisst: en kladd som bruker bildet,
+/// brekker om bildet slettes.
+pub async fn db_post_referanser(key: &str, db: &PgPool) -> Result<Vec<PostReferanse>, sqlx::Error> {
+    sqlx::query_as!(
+        PostReferanse,
+        r#"
+        SELECT slug, title, published_at
+        FROM post
+        WHERE strpos(content, $1) > 0
+        ORDER BY published_at DESC NULLS LAST, slug
+        "#,
+        key,
+    )
+    .fetch_all(db)
+    .await
 }
