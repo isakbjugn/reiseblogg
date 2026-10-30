@@ -371,12 +371,12 @@ pub async fn rediger_post(
     })?;
 
     // Avbryt peker tilbake dit posten faktisk lever: den publiserte siden, eller
-    // forsiden for en kladd (en kladd har ingen offentlig `/post/{slug}`).
+    // kladd-visningen for en kladd.
     let publisert = rad.published_at.is_some();
     let avbryt = if publisert {
         format!("/post/{}", rad.slug)
     } else {
-        "/".to_string()
+        format!("/kladd/{}", rad.slug)
     };
 
     let html = rendre(
@@ -390,6 +390,42 @@ pub async fn rediger_post(
             tittel => rad.title,
             innhold => rad.content,
             publisert => publisert,
+            paalogget => true,
+        },
+    )?;
+    Ok(html.into_response())
+}
+
+/// Lese-modus for en kladd: viser innholdet slik lesere vil se det, uten at
+/// posten er publisert. Kun for innloggede – utlogget får redirect til
+/// `/logg-inn`, og en *publisert* post redirectes til `/post/{slug}`, så
+/// `/kladd/{slug}` aldri avslører en kladd for noen som ikke skal se den.
+pub async fn vis_kladd(
+    State(state): State<Arc<AppState>>,
+    Path(slug): Path<String>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let rad = db_get_post(&slug, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
+
+    // En publisert post hører hjemme på sin offentlige side, ikke her.
+    if rad.published_at.is_some() {
+        return Ok(redirect(&format!("/post/{slug}")));
+    }
+
+    let html = rendre(
+        &state,
+        "kladd.html",
+        context! {
+            slug => rad.slug,
+            tittel => rad.title,
+            innhold => markdown::til_html(&rad.content),
             paalogget => true,
         },
     )?;

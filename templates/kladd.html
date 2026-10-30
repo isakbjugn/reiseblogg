@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block tittel %}{{ tittel }} (kladd) – Sør-Amerika{% endblock %}
+
+{% block innhold %}
+  <article class="post">
+    <p class="kladd-banner">Kladd – ikke publisert</p>
+    <h1>{{ tittel }}</h1>
+
+    {# `| safe` av samme grunn som i post.html: innholdet er ferdig rendret HTML
+       fra `markdown::til_html`, som fjerner rå HTML og nuller javascript:-URL-er. #}
+    <div class="brodtekst">{{ innhold | safe }}</div>
+  </article>
+
+  <nav class="post-bunn">
+    <a href="/rediger/{{ slug }}">Rediger</a>
+    <a href="/slett/{{ slug }}">Slett</a>
+    <a href="/">← Til forsiden</a>
+  </nav>
+{% endblock %}

@@ -153,6 +153,7 @@ async fn main() {
         .route("/arkiv", get(poster::arkiv))
         .route("/om-oss", get(poster::om_oss))
         .route("/ny", get(poster::ny_post).post(poster::opprett_post))
+        .route("/kladd/{slug}", get(poster::vis_kladd))
         .route("/rediger/{slug}", get(poster::rediger_post).post(poster::oppdater_post))
         .route("/slett/{slug}", get(poster::slett_bekreft).post(poster::slett_post))
         .route("/media", post(media::create_media))
