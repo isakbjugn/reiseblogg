@@ -457,7 +457,9 @@ pub async fn opprett_post(
 }
 
 /// POST /rediger/{slug} – lagrer tittel og innhold, og publiserer/avpubliserer
-/// hvis den knappen ble brukt. «Lagre» rører ikke `published_at`.
+/// hvis den knappen ble brukt. Redirecten følger postens tilstand: publisert →
+/// `/post/{slug}`, kladd → `/kladd/{slug}`. Unntaket er «Lagre» på en kladd, som
+/// blir i editoren (du skriver fortsatt).
 pub async fn oppdater_post(
     State(state): State<Arc<AppState>>,
     Path(slug): Path<String>,
@@ -468,8 +470,9 @@ pub async fn oppdater_post(
         return Ok(redirect("/logg-inn"));
     };
 
-    // 404 hvis slugen mangler – `RETURNING slug` gir `RowNotFound`.
-    db_oppdater_innhold(&slug, &skjema.tittel, &skjema.innhold, author.id, &state.db)
+    // Lagrer tittel og innhold, og får `published_at` tilbake for å avgjøre
+    // redirect-målet. 404 hvis slugen mangler – `RETURNING` gir `RowNotFound`.
+    let published_at = db_oppdater_innhold(&slug, &skjema.tittel, &skjema.innhold, author.id, &state.db)
         .await
         .map_err(|e| match e {
             Error::RowNotFound => StatusCode::NOT_FOUND,
@@ -491,10 +494,13 @@ pub async fn oppdater_post(
         _ => {} // «lagre» beholder publiseringsstatusen.
     }
 
-    Ok(if handling == Some("publiser") {
-        redirect(&format!("/post/{slug}"))
-    } else {
-        redirect(&format!("/rediger/{slug}?lagret=1"))
+    Ok(match handling {
+        Some("publiser") => redirect(&format!("/post/{slug}")),
+        Some("avpubliser") => redirect(&format!("/kladd/{slug}")),
+        // «Lagre» beholder publiseringsstatusen. Publisert post → lese-visningen;
+        // kladd → bli i editoren, fordi du fortsatt skriver.
+        _ if published_at.is_some() => redirect(&format!("/post/{slug}")),
+        _ => redirect(&format!("/rediger/{slug}?lagret=1")),
     })
 }
 

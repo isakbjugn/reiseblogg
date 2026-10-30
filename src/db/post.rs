@@ -113,20 +113,21 @@ pub async fn db_opprett_post(
 }
 
 /// Lagrer tittel og innhold, uten å røre `published_at` – «Lagre»-handlingen
-/// beholder publiseringsstatusen. `RETURNING slug` gjør at en ukjent slug gir
-/// `RowNotFound`, som handleren mapper til 404.
+/// beholder publiseringsstatusen. Returnerer `published_at` slik at handleren
+/// ser om posten er publisert (og kan redirecte til riktig side). `RETURNING`
+/// gjør at en ukjent slug gir `RowNotFound`, som handleren mapper til 404.
 pub async fn db_oppdater_innhold(
     slug: &str,
     title: &str,
     content: &str,
     author_id: i32,
     db: &PgPool,
-) -> Result<String, sqlx::Error> {
+) -> Result<Option<DateTime<Utc>>, sqlx::Error> {
     sqlx::query_scalar!(
         r#"
         UPDATE post SET title = $2, content = $3, updated_by = $4
         WHERE slug = $1
-        RETURNING slug
+        RETURNING published_at
         "#,
         slug,
         title,
