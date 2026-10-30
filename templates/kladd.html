@@ -13,6 +13,11 @@
   </article>
 
   <nav class="post-bunn">
+    {# Publisering er en POST, ikke en lenke – den endrer tilstand, og CSRF-modellen
+       er at skrive-endepunkter aldri svarer på GET. #}
+    <form method="post" action="/publiser/{{ slug }}">
+      <button type="submit">Publiser</button>
+    </form>
     <a href="/rediger/{{ slug }}">Rediger</a>
     <a href="/slett/{{ slug }}">Slett</a>
     <a href="/">← Til forsiden</a>
