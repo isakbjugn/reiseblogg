@@ -14,8 +14,8 @@
       <ul>
         {% for kladd in kladder %}
           <li>
-            <a href="/rediger/{{ kladd.slug }}">{{ kladd.tittel }}</a>
-            <span class="meta">sist endret {{ kladd.sist_endret }}</span>
+            <a href="/kladd/{{ kladd.slug }}">{{ kladd.tittel }}</a>
+            <span class="meta">sist endret {{ kladd.sist_endret }} · <a href="/rediger/{{ kladd.slug }}">Rediger</a></span>
           </li>
         {% endfor %}
       </ul>
