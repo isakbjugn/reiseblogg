@@ -42,6 +42,7 @@
         <a href="/arkiv">Arkiv</a>
         <a href="/om-oss">Om oss</a>
         {% if paalogget %}
+          <a href="/media">Media</a>
           <a href="/ny">Skriv</a>
           {# Utlogging er en POST (CSRF: ingen skrive-endepunkt svarer på GET). #}
           <form method="post" action="/logg-ut">

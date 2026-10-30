@@ -4,4 +4,5 @@
 //! og er aldri `Serialize` – visningstypene templatene ser bygges i
 //! handler-filene.
 
+pub mod media;
 pub mod post;

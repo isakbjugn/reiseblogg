@@ -25,7 +25,7 @@ use std::sync::Arc;
 
 use axum::Router;
 use axum::extract::State;
-use axum::http::{HeaderValue, StatusCode, header};
+use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::from_fn_with_state;
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
@@ -82,6 +82,21 @@ pub(crate) fn rendre(state: &AppState, navn: &str, ctx: minijinja::Value) -> Res
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
+/// 303-redirect. 303 (ikke 302) tvinger nettleseren til å følge med GET, så en
+/// refresh ikke re-poster skjemaet – samme grunn som i `auth.rs`.
+pub(crate) fn redirect(location: &str) -> Response {
+    let mut headers = HeaderMap::new();
+    headers.insert(header::LOCATION, HeaderValue::from_str(location).expect("gyldig sti"));
+    (StatusCode::SEE_OTHER, headers).into_response()
+}
+
+/// SQLx-feil som ikke er «raden finnes ikke»: logg og svar 500. Delt av handlerne
+/// i `poster` og `media`.
+pub(crate) fn db_feil(e: sqlx::Error) -> StatusCode {
+    tracing::error!("Databasefeil: {e:#?}");
+    StatusCode::INTERNAL_SERVER_ERROR
+}
+
 /// 404-side for ukjente URL-er.
 ///
 /// Egen handler framfor axums standardsvar, så en feilstavet lenke gir en side med
@@ -110,7 +125,11 @@ async fn main() {
         .await
         .expect("Klarte ikke å gjøre database-migrering");
 
-    let state = Arc::new(AppState { db, env: build_env(), s3: media::s3_client() });
+    let state = Arc::new(AppState {
+        db,
+        env: build_env(),
+        s3: media::s3_client(),
+    });
 
     // Rate-limiter for offentlig auth-trafikk. I lokal utvikling (ingen edge-header)
     // er den en no-op; se rate_limit.rs for begrunnelsen.
@@ -157,7 +176,8 @@ async fn main() {
         .route("/rediger/{slug}", get(poster::rediger_post).post(poster::oppdater_post))
         .route("/slett/{slug}", get(poster::slett_bekreft).post(poster::slett_post))
         .route("/publiser/{slug}", post(poster::publiser_post))
-        .route("/media", post(media::create_media))
+        .route("/media", get(media::vis_media_start).post(media::create_media))
+        .route("/media/{id}", get(media::vis_media))
         .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)
         .nest_service("/static", static_med_cache)

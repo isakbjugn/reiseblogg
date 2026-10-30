@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block tittel %}Media – Sør-Amerika{% endblock %}
+
+{% block innhold %}
+  <article class="galleri">
+    <h1>Media</h1>
+
+    {% if har_media %}
+      <nav class="galleri-piler">
+        {% if forrige_id %}
+          <a href="/media/{{ forrige_id }}">← Forrige</a>
+        {% else %}
+          <span class="tom">← Forrige</span>
+        {% endif %}
+
+        <span class="posisjon">{{ posisjon }} / {{ totalt }}</span>
+
+        {% if neste_id %}
+          <a href="/media/{{ neste_id }}">Neste →</a>
+        {% else %}
+          <span class="tom">Neste →</span>
+        {% endif %}
+      </nav>
+
+      <figure class="galleri-ramme">
+        {% if er_video %}
+          <video src="{{ url }}" controls></video>
+        {% else %}
+          <img src="{{ url }}" alt="" />
+        {% endif %}
+      </figure>
+    {% else %}
+      <p>Ingen bilder ennå. Last opp fra <a href="/ny">editoren</a>.</p>
+    {% endif %}
+  </article>
+{% endblock %}

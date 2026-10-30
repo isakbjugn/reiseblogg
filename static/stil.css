@@ -617,6 +617,43 @@ button.farlig:hover {
   cursor: wait;
 }
 
+/* Media-galleri */
+
+.galleri {
+  text-align: center;
+}
+
+/* Pilerad: forrige til venstre, posisjon i midten, neste til høyre. */
+.galleri-piler {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+}
+
+/* En deaktivert pil (første/siste bilde) er en dempet span framfor en lenke. */
+.galleri-piler .tom {
+  color: var(--dempet);
+  opacity: 0.45;
+}
+
+.galleri-ramme {
+  margin: 0;
+}
+
+.galleri-ramme img,
+.galleri-ramme video {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  border-radius: var(--radius);
+  background: var(--kort);
+  box-shadow: var(--skygge);
+}
+
 /* Om oss */
 
 details {

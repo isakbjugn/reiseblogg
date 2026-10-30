@@ -5,6 +5,6 @@
 //! til HTTP-statuser.
 
 pub mod magic_token;
+pub mod media;
 pub mod post;
 pub mod session;
-pub mod media;
