@@ -7,7 +7,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Form, Path, State};
-use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
+use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use chrono::Utc;
 use minijinja::context;
@@ -20,7 +20,7 @@ use crate::db::post::{
 };
 use crate::extract::AuthenticatedAuthor;
 use crate::types::post::{PostRad, PostVisning};
-use crate::{AppState, markdown, rendre};
+use crate::{AppState, db_feil, markdown, redirect, rendre};
 
 /// Konverterer en DB-rad til visningstypen templatene ser.
 ///
@@ -44,12 +44,6 @@ impl PostVisning {
             innhold_html: markdown::til_html(&rad.content),
         }
     }
-}
-
-/// SQLx-feil som ikke er «raden finnes ikke»: logg og svar 500.
-fn db_feil(e: Error) -> StatusCode {
-    tracing::error!("Databasefeil: {e:#?}");
-    StatusCode::INTERNAL_SERVER_ERROR
 }
 
 /// Norske månedsnavn. Brukes til lesbare datoer og arkivgruppering.
@@ -314,14 +308,6 @@ pub struct PostSkjema {
     pub tittel: String,
     pub innhold: String,
     pub handling: Option<String>,
-}
-
-/// 303-redirect. 303 (ikke 302) tvinger nettleseren til å følge med GET, så en
-/// refresh ikke re-poster skjemaet – samme grunn som i `auth.rs`.
-fn redirect(location: &str) -> Response {
-    let mut headers = HeaderMap::new();
-    headers.insert(header::LOCATION, HeaderValue::from_str(location).expect("gyldig sti"));
-    (StatusCode::SEE_OTHER, headers).into_response()
 }
 
 const NY_POST_MAL: &str = "Skriv her.\n\n\

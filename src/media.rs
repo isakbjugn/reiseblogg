@@ -1,8 +1,16 @@
 use std::sync::Arc;
 
-use axum::{Json, extract::State, http::StatusCode};
+use axum::Json;
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
+use axum::response::{Html, IntoResponse, Response};
+use minijinja::context;
 
-use crate::{AppState, db::media::insert, extract::AuthenticatedAuthor, tokens::generate_session_token};
+use crate::db::media::{db_liste_media, insert};
+use crate::extract::AuthenticatedAuthor;
+use crate::tokens::generate_session_token;
+use crate::types::media::MediaRad;
+use crate::{AppState, redirect, rendre};
 
 #[derive(serde::Deserialize)]
 pub struct CreateMediaRequest {
@@ -45,13 +53,7 @@ pub fn s3_client() -> aws_sdk_s3::Client {
     let secret_access_key = std::env::var("R2_SECRET_ACCESS_KEY").expect("R2_SECRET_ACCESS_KEY må være satt");
     let region = std::env::var("R2_REGION").expect("R2_REGION må være satt");
 
-    let creds = Credentials::new(
-        access_key_id,
-        secret_access_key,
-        None,
-        None,
-        "static",
-    );
+    let creds = Credentials::new(access_key_id, secret_access_key, None, None, "static");
 
     let config = aws_sdk_s3::Config::builder()
         .behavior_version_latest()
@@ -88,9 +90,10 @@ pub async fn create_media(
         .bucket(&bucket)
         .key(&key)
         .content_type(&payload.mime_type)
-        .presigned(aws_sdk_s3::presigning::PresigningConfig::expires_in(
-            std::time::Duration::from_secs(900),
-        ).expect("gyldig utløp"))
+        .presigned(
+            aws_sdk_s3::presigning::PresigningConfig::expires_in(std::time::Duration::from_secs(900))
+                .expect("gyldig utløp"),
+        )
         .await
         .map_err(|e| {
             tracing::error!("Presignering feilet: {e:#?}");
@@ -113,6 +116,84 @@ pub async fn create_media(
     }))
 }
 
+/// Galleriet: én media-oppføring om gangen, med piler til forrige/neste. Kun for
+/// innloggede – uten sesjon redirecter vi til `/logg-inn`, samme mønster som
+/// `ny_post`. Ingen JavaScript: pilene er vanlige `<a>`-lenker.
+///
+/// `/media` redirecter til den nyeste oppføringen, så hver oppføring har én
+/// kanonisk URL (`/media/{id}`) – samme prinsipp som `/kladd/{slug}` → `/post/{slug}`.
+pub async fn vis_media_start(
+    State(state): State<Arc<AppState>>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let alle = db_liste_media(&state.db).await.map_err(|e| {
+        tracing::error!("Databasefeil ved henting av media: {e:#?}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    match alle.first() {
+        Some(første) => Ok(redirect(&format!("/media/{}", første.id))),
+        None => Ok(rendre_galleri(&state, &alle, None)?.into_response()),
+    }
+}
+
+/// `/media/{id}` – én bestemt oppføring, med forrige/neste beregnet fra listen.
+pub async fn vis_media(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let alle = db_liste_media(&state.db).await.map_err(|e| {
+        tracing::error!("Databasefeil ved henting av media: {e:#?}");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+    // Finn oppføringen i listen for å vite hvem som er forrige og neste. Ukjent
+    // id (f.eks. slettet i mellomtiden) er 404, som en ukjent slug.
+    let Some(pos) = alle.iter().position(|m| m.id == id) else {
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    Ok(rendre_galleri(&state, &alle, Some(pos))?.into_response())
+}
+
+/// Rendrer galleri-templaten. `pos` er indeksen i `alle` (nyeste først), `None`
+/// når det ikke finnes noen media i det hele tatt. `paalogget => true` er riktig
+/// her: galleriet er kun tilgjengelig for innloggede.
+fn rendre_galleri(state: &AppState, alle: &[MediaRad], pos: Option<usize>) -> Result<Html<String>, StatusCode> {
+    let Some(pos) = pos else {
+        return rendre(state, "media.html", context! { har_media => false, paalogget => true });
+    };
+
+    let media = &alle[pos];
+    let r2_public = std::env::var("R2_PUBLIC_URL").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let url = format!("{}/{}", r2_public, media.key);
+    let er_video = media.mime_type == "video/mp4";
+
+    rendre(
+        state,
+        "media.html",
+        context! {
+            har_media => true,
+            paalogget => true,
+            url,
+            er_video,
+            forrige_id => pos.checked_sub(1).map(|i| alle[i].id),
+            neste_id => pos.checked_add(1).filter(|i| *i < alle.len()).map(|i| alle[i].id),
+            posisjon => pos + 1,
+            totalt => alle.len(),
+        },
+    )
+}
+
 #[tokio::test]
 async fn genererer_presignert_put() {
     use aws_sdk_s3::config::{Credentials, Region};
@@ -121,10 +202,10 @@ async fn genererer_presignert_put() {
 
     let config = aws_sdk_s3::Config::builder()
         .behavior_version_latest()
-        .region(Region::new("us-east-1"))       // "auto" for R2 senere
-        .endpoint_url("http://localhost:9000")  // MinIO lokalt
+        .region(Region::new("us-east-1")) // "auto" for R2 senere
+        .endpoint_url("http://localhost:9000") // MinIO lokalt
         .credentials_provider(creds)
-        .force_path_style(true)                 // MinIO og R2 krever denne
+        .force_path_style(true) // MinIO og R2 krever denne
         .build();
 
     let client = aws_sdk_s3::Client::from_conf(config);
@@ -134,9 +215,10 @@ async fn genererer_presignert_put() {
         .bucket("media")
         .key("test/spike.jpg")
         .content_type("image/jpeg")
-        .presigned(aws_sdk_s3::presigning::PresigningConfig::expires_in(
-            std::time::Duration::from_secs(900),
-        ).expect("gyldig utløp"))
+        .presigned(
+            aws_sdk_s3::presigning::PresigningConfig::expires_in(std::time::Duration::from_secs(900))
+                .expect("gyldig utløp"),
+        )
         .await
         .expect("presignering feilet")
         .uri()
