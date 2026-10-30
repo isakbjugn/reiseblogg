@@ -7,6 +7,7 @@ use axum::response::{Html, IntoResponse, Response};
 use minijinja::context;
 
 use crate::db::media::{db_liste_media, insert};
+use crate::db::post::db_post_referanser;
 use crate::extract::AuthenticatedAuthor;
 use crate::tokens::generate_session_token;
 use crate::types::media::MediaRad;
@@ -137,7 +138,7 @@ pub async fn vis_media_start(
 
     match alle.first() {
         Some(første) => Ok(redirect(&format!("/media/{}", første.id))),
-        None => Ok(rendre_galleri(&state, &alle, None)?.into_response()),
+        None => Ok(rendre_galleri(&state, &alle, None).await?.into_response()),
     }
 }
 
@@ -162,13 +163,13 @@ pub async fn vis_media(
         return Err(StatusCode::NOT_FOUND);
     };
 
-    Ok(rendre_galleri(&state, &alle, Some(pos))?.into_response())
+    Ok(rendre_galleri(&state, &alle, Some(pos)).await?.into_response())
 }
 
 /// Rendrer galleri-templaten. `pos` er indeksen i `alle` (nyeste først), `None`
 /// når det ikke finnes noen media i det hele tatt. `paalogget => true` er riktig
 /// her: galleriet er kun tilgjengelig for innloggede.
-fn rendre_galleri(state: &AppState, alle: &[MediaRad], pos: Option<usize>) -> Result<Html<String>, StatusCode> {
+async fn rendre_galleri(state: &AppState, alle: &[MediaRad], pos: Option<usize>) -> Result<Html<String>, StatusCode> {
     let Some(pos) = pos else {
         return rendre(state, "media.html", context! { har_media => false, paalogget => true });
     };
@@ -177,6 +178,25 @@ fn rendre_galleri(state: &AppState, alle: &[MediaRad], pos: Option<usize>) -> Re
     let r2_public = std::env::var("R2_PUBLIC_URL").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let url = format!("{}/{}", r2_public, media.key);
     let er_video = media.mime_type == "video/mp4";
+
+    // Innlegg som bruker dette mediet. Dette er det omvendte oppslaget av det
+    // editoren gjør: der limes key-en inn som del av en URL i Markdown-en, her
+    // finner vi alle postene som inneholder akkurat den key-en.
+    let referanser: Vec<_> = db_post_referanser(&media.key, &state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Databasefeil ved oppslag av referanser: {e:#?}");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?
+        .into_iter()
+        .map(|r| {
+            context! {
+                slug => r.slug,
+                tittel => r.title,
+                publisert => r.published_at.is_some(),
+            }
+        })
+        .collect();
 
     rendre(
         state,
@@ -190,6 +210,7 @@ fn rendre_galleri(state: &AppState, alle: &[MediaRad], pos: Option<usize>) -> Re
             neste_id => pos.checked_add(1).filter(|i| *i < alle.len()).map(|i| alle[i].id),
             posisjon => pos + 1,
             totalt => alle.len(),
+            referanser,
         },
     )
 }

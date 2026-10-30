@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block tittel %}Media – Sør-Amerika{% endblock %}
+{% block main_klasse %}bred{% endblock %}
 
 {% block innhold %}
   <article class="galleri">
@@ -23,13 +24,35 @@
         {% endif %}
       </nav>
 
-      <figure class="galleri-ramme">
-        {% if er_video %}
-          <video src="{{ url }}" controls></video>
-        {% else %}
-          <img src="{{ url }}" alt="" />
-        {% endif %}
-      </figure>
+      <div class="galleri-layout">
+        <figure class="galleri-ramme">
+          {% if er_video %}
+            <video src="{{ url }}" controls></video>
+          {% else %}
+            <img src="{{ url }}" alt="" />
+          {% endif %}
+        </figure>
+
+        <aside class="galleri-referanser">
+          <h2>Brukt i</h2>
+          {% if referanser %}
+            <ul>
+              {% for r in referanser %}
+                <li>
+                  {% if r.publisert %}
+                    <a href="/post/{{ r.slug }}">{{ r.tittel }}</a>
+                  {% else %}
+                    <a href="/kladd/{{ r.slug }}">{{ r.tittel }}</a>
+                    <span class="referanse-kladd">kladd</span>
+                  {% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="hint">Ingen innlegg bruker dette mediet.</p>
+          {% endif %}
+        </aside>
+      </div>
     {% else %}
       <p>Ingen bilder ennå. Last opp fra <a href="/ny">editoren</a>.</p>
     {% endif %}
