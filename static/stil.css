@@ -707,6 +707,20 @@ button.farlig:hover {
   white-space: nowrap;
 }
 
+/* Slett-lenke i galleriet: destruktiv handling, men dempet fram til den
+   bekreftes på egen side (fargen matcher `button.farlig`). */
+.slett-media {
+  display: inline-block;
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #a3422e;
+}
+
+.slett-media:hover {
+  color: #7d3122;
+}
+
 /* Om oss */
 
 details {

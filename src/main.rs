@@ -178,6 +178,10 @@ async fn main() {
         .route("/publiser/{slug}", post(poster::publiser_post))
         .route("/media", get(media::vis_media_start).post(media::create_media))
         .route("/media/{id}", get(media::vis_media))
+        .route(
+            "/media/{id}/slett",
+            get(media::slett_media_bekreft).post(media::slett_media),
+        )
         .merge(auth_routes)
         .nest_service("/static/vendor", vendor_med_cache)
         .nest_service("/static", static_med_cache)

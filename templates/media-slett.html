@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block tittel %}Slett media – Sør-Amerika{% endblock %}
+
+{% block innhold %}
+  <h1>Slett dette mediet?</h1>
+  <p>Dette kan ikke angres – mediet forsvinner for godt fra bøtta.</p>
+
+  <figure class="galleri-ramme">
+    {% if er_video %}
+      <video src="{{ url }}" controls></video>
+    {% else %}
+      <img src="{{ url }}" alt="" />
+    {% endif %}
+  </figure>
+
+  {# Bekreftelsen er et vanlig POST-skjema, samme grunn som i slett.html:
+     sletting fungerer uten JavaScript, og SameSite=Lax-cookie-en stopper CSRF. #}
+  <form method="post" action="/media/{{ id }}/slett">
+    <div class="knapperad">
+      <button type="submit" class="farlig">Ja, slett</button>
+      <a href="/media/{{ id }}" class="sekundaer">Avbryt</a>
+    </div>
+  </form>
+{% endblock %}

@@ -5,13 +5,14 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use minijinja::context;
+use sqlx::Error;
 
-use crate::db::media::{db_liste_media, insert};
+use crate::db::media::{db_hent_media, db_liste_media, db_slett_media, insert};
 use crate::db::post::db_post_referanser;
 use crate::extract::AuthenticatedAuthor;
 use crate::tokens::generate_session_token;
 use crate::types::media::MediaRad;
-use crate::{AppState, redirect, rendre};
+use crate::{AppState, db_feil, redirect, rendre};
 
 #[derive(serde::Deserialize)]
 pub struct CreateMediaRequest {
@@ -166,6 +167,88 @@ pub async fn vis_media(
     Ok(rendre_galleri(&state, &alle, Some(pos)).await?.into_response())
 }
 
+/// GET /media/{id}/slett – bekreftelsesside før sletting. Ren HTML, som
+/// `slett_bekreft` for poster: sletting er irreversibelt, så et ekstra klikk er
+/// billig forsikring.
+///
+/// Slett er kun tillatt når ingen innlegg refererer mediet. Sjekken gjentas i
+/// POST-en (den faktiske slettingen); her hindrer den bare at bekreftelsessiden
+/// vises for noe som ikke kan slettes.
+pub async fn slett_media_bekreft(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let media = db_hent_media(id, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
+
+    let referanser = db_post_referanser(&media.key, &state.db).await.map_err(db_feil)?;
+    if !referanser.is_empty() {
+        return Ok(redirect(&format!("/media/{}", media.id)));
+    }
+
+    let r2_public = std::env::var("R2_PUBLIC_URL").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let html = rendre(
+        &state,
+        "media-slett.html",
+        context! {
+            id => media.id,
+            url => format!("{}/{}", r2_public, media.key),
+            er_video => media.mime_type == "video/mp4",
+            paalogget => true,
+        },
+    )?;
+    Ok(html.into_response())
+}
+
+/// POST /media/{id}/slett – sletter mediet: objektet i R2 og rada i databasen.
+pub async fn slett_media(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<i32>,
+    author: Option<AuthenticatedAuthor>,
+) -> Result<Response, StatusCode> {
+    if author.is_none() {
+        return Ok(redirect("/logg-inn"));
+    }
+
+    let media = db_hent_media(id, &state.db).await.map_err(|e| match e {
+        Error::RowNotFound => StatusCode::NOT_FOUND,
+        e => db_feil(e),
+    })?;
+
+    // Den avgjørende sjekken: slett bare når ingen innlegg (publiserte eller
+    // kladder) refererer mediet. Sjekken på bekreftelsessiden var kun for
+    // visning; her er den det som faktisk hindrer sletting av noe i bruk.
+    let referanser = db_post_referanser(&media.key, &state.db).await.map_err(db_feil)?;
+    if !referanser.is_empty() {
+        return Ok(redirect(&format!("/media/{}", media.id)));
+    }
+
+    // Les bucket-navnet før noe slettes, så en manglende miljøvariabel feiler
+    // rent framfor midt i slettingen.
+    let bucket = std::env::var("R2_BUCKET").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Rada i databasen slettes først – den er det som styrer galleriet, så når
+    // den er borte, er mediet «slettet» for brukeren. Objektet i R2 er opprydning
+    // og gjøres best-effort etterpå: feiler det (f.eks. fordi objektet aldri ble
+    // lastet opp – en «tom» rad – eller et forbigående nettverksproblem), er
+    // konsekvensen en usynlig foreldreløs fil i bøtta, ikke en 500 som hindrer
+    // sletting. Vi logger det, så foreldreløse filer kan ryddes manuelt.
+    db_slett_media(media.id, &state.db).await.map_err(db_feil)?;
+
+    if let Err(e) = state.s3.delete_object().bucket(&bucket).key(&media.key).send().await {
+        tracing::warn!("Klarte ikke å slette objekt fra R2 (etterlater foreldreløs fil): {e:#?}");
+    }
+
+    Ok(redirect("/media"))
+}
+
 /// Rendrer galleri-templaten. `pos` er indeksen i `alle` (nyeste først), `None`
 /// når det ikke finnes noen media i det hele tatt. `paalogget => true` er riktig
 /// her: galleriet er kun tilgjengelig for innloggede.
@@ -204,6 +287,7 @@ async fn rendre_galleri(state: &AppState, alle: &[MediaRad], pos: Option<usize>)
         context! {
             har_media => true,
             paalogget => true,
+            id => media.id,
             url,
             er_video,
             forrige_id => pos.checked_sub(1).map(|i| alle[i].id),
