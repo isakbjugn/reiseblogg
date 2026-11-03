@@ -52,10 +52,38 @@
             <p class="hint">Ingen innlegg bruker dette mediet.</p>
             <a class="slett-media" href="/media/{{ id }}/slett">Slett mediet</a>
           {% endif %}
+
+          <h2 class="lenke-overskrift">Lenke</h2>
+          <div class="lenke-rad">
+            <input type="text" value="{{ url }}" readonly data-lenke />
+            <button type="button" data-kopier>Kopier</button>
+          </div>
         </aside>
       </div>
     {% else %}
       <p>Ingen bilder ennå. Last opp fra <a href="/ny">editoren</a>.</p>
     {% endif %}
   </article>
+
+  {# Kopier-lenke: ren progressive enhancement. Uten JavaScript ligger URL-en i
+     feltet over og kan kopieres manuelt; skriptet gjør knappen funksjonell. #}
+  <script>
+    const knapp = document.querySelector('[data-kopier]');
+    if (knapp) {
+      knapp.addEventListener('click', async () => {
+        const felt = document.querySelector('[data-lenke]');
+        try {
+          await navigator.clipboard.writeText(felt.value);
+          knapp.textContent = 'Kopiert!';
+        } catch {
+          // Clipboard kan mangle (f.eks. på http uten secure context). Fallback:
+          // velg teksten i feltet, så et manuelt Ctrl+C er nok.
+          felt.focus();
+          felt.select();
+          knapp.textContent = 'Trykk Ctrl+C';
+        }
+        setTimeout(() => (knapp.textContent = 'Kopier'), 2000);
+      });
+    }
+  </script>
 {% endblock %}
