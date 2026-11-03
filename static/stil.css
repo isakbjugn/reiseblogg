@@ -721,6 +721,35 @@ button.farlig:hover {
   color: #7d3122;
 }
 
+/* Kopier-lenke i sidebaren: readonly URL-felt + kopier-knapp. */
+.galleri-referanser h2.lenke-overskrift {
+  margin-top: 1.25rem;
+}
+
+.lenke-rad {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.lenke-rad input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--kantlinje);
+  border-radius: var(--radius);
+  background: var(--kort);
+  color: var(--dempet);
+}
+
+.lenke-rad button {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 /* Om oss */
 
 details {
